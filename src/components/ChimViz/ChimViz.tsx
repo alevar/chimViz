@@ -9,24 +9,51 @@ interface ChimVizProps {
     fontSize: number;
 }
 
-function spread_labels(input: number[][]): number[][] {
-    const sortedCircles = input.map(([_, center]) => center).sort((a, b) => a - b);
-    const result: number[][] = [{ center: sortedCircles[0], radius: LABEL_WIDTH }];
-  
-    for (let i = 1; i < sortedCircles.length; i++) {
-        const currentCenter = sortedCircles[i];
-        const lastCircle = result[result.length - 1];
-    
-        const minDistance = lastCircle.radius + LABEL_WIDTH;
-        let newCenter = lastCircle.center + minDistance;
-    
-        // Ensure the new center is within bounds
-        newCenter = Math.max(MIN_POSITION, Math.min(MAX_POSITION - LABEL_WIDTH, newCenter));
-    
-        result.push({ center: newCenter, radius: LABEL_WIDTH });
-    }
-  
-    return result;
+type Interval = [number, number];
+
+function adjustIntervals(intervals: Interval[], separator: number): Interval[] {
+  // Base case: when there are no intervals or only one interval
+  if (intervals.length <= 1) {
+      return intervals;
+  }
+
+  // Sort intervals by their start position
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  // Recursive function to adjust intervals
+  function adjustRecursive(index: number): void {
+      if (index <= 0) {
+          // Base case: reached the beginning of the array
+          return;
+      }
+
+      const currentInterval = intervals[index];
+      const leftNeighbor = intervals[index - 1];
+
+      // There is an overlap with the left neighbor
+      const overlap = Math.max(0,(leftNeighbor[1] - currentInterval[0]) - separator);
+      let adjustAmount = overlap / 2;
+
+      // Adjust position of the left neighbor
+      if ( leftNeighbor[0] - adjustAmount < 0 ) {
+          adjustAmount = leftNeighbor[0];
+      }
+      leftNeighbor[1] -= adjustAmount;
+      leftNeighbor[0] -= adjustAmount;
+
+      // Recursive call for the adjusted left neighbor
+      adjustRecursive(index - 1);
+      console.log(index,intervals)
+
+      // adjust current element according to the adjusted left neighbor
+      const new_overlap = Math.min(0,(intervals[index][0] - intervals[index-1][1]) - separator);
+      intervals[index][0] = intervals[index][0] - new_overlap;
+      intervals[index][1] = intervals[index][1] - new_overlap;
+      
+      return
+  }
+
+  adjustRecursive(intervals.length-1);
 }
 
 const ChimViz: React.FC<ChimVizProps> = ({ densities, genes, width, height, fontSize }) => {
@@ -91,40 +118,58 @@ const ChimViz: React.FC<ChimVizProps> = ({ densities, genes, width, height, font
       if (genes[key]) {
 
         // extract raw label positions
-        const raw_label_positions = [];
+        const raw_label_positions:Interval[] = [];
+        const spread_label_positions:Interval[] = [];
         genes[key].forEach(([geneName, genePosition]) => {
             const percent_position = ((genePosition / 100000) / 100) * (rectWidth - chromosome_spacer);
-            raw_label_positions.push([geneName,percent_position - label_width/2, percent_position + label_width/2]);
+            const interval_start = percent_position - label_width/2;
+            const interval_end = percent_position + label_width/2;
+            raw_label_positions.push([interval_start,interval_end]);
+            spread_label_positions.push([interval_start,interval_end]);
         });
-        console.log(genes[key]);
-        console.log(raw_label_positions);
-        // add 
+        
+        const separator = 0.2;
+        adjustIntervals(spread_label_positions,separator);
 
+        let gene_index = 0;
         genes[key].forEach(([geneName, genePosition]) => {
           // Ensure that genePosition is a valid number
           if (!isNaN(genePosition)) {
             // Calculate the x-position of the gene label relative to the current rectangle
-            const gene_label_xpos = xPosition + ((genePosition / 100000) / 100) * (rectWidth - chromosome_spacer);
+            const gene_label_adjusted_xpos = xPosition + (spread_label_positions[gene_index][1] + spread_label_positions[gene_index][0])/2;
+            const gene_label_xpos = xPosition + (raw_label_positions[gene_index][1] + raw_label_positions[gene_index][0])/2;
 
             // Add gene label text on the rectangle
             svg
               .append('text')
-              .attr('x', gene_label_xpos + '%')
+              .attr('x', `${gene_label_adjusted_xpos}%`)
               .attr('y', 100) // Adjust y-position as needed for the gene label
-              .attr('text-anchor', 'middle') // Center the text
+              .attr('text-anchor', 'end') // Center the text
               .style('fill', '#ff0000') // Adjust text color for gene labels
+              .attr('transform', `rotate(-90 ${gene_label_adjusted_xpos * (width / 100)},${100})`) // Rotate text 90 degrees
+              .style('font-size', fontSize+"px") // Adjust font size
               .text(geneName);
 
             // Draw a line connecting the gene label to the rectangle
             svg
               .append('line')
               .attr('x1', gene_label_xpos + '%')
-              .attr('y1', 65)
+              .attr('y1', 60)
               .attr('x2', gene_label_xpos + '%')
-              .attr('y2', 90) // Adjust y-position as needed for the line
+              .attr('y2', 80) // Adjust y-position as needed for the line
+              .style('stroke', '#ff0000') // Adjust line color for gene labels
+              .style('stroke-width', 1);
+
+            svg
+              .append('line')
+              .attr('x1', gene_label_xpos + '%')
+              .attr('y1', 80)
+              .attr('x2', gene_label_adjusted_xpos + '%')
+              .attr('y2', 100) // Adjust y-position as needed for the line
               .style('stroke', '#ff0000') // Adjust line color for gene labels
               .style('stroke-width', 1);
           }
+          gene_index += 1;
         });
       }
 
