@@ -43,7 +43,6 @@ function adjustIntervals(intervals: Interval[], separator: number): Interval[] {
 
       // Recursive call for the adjusted left neighbor
       adjustRecursive(index - 1);
-      console.log(index,intervals)
 
       // adjust current element according to the adjusted left neighbor
       const new_overlap = Math.min(0,(intervals[index][0] - intervals[index-1][1]) - separator);

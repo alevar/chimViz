@@ -1,7 +1,10 @@
 // src/App.tsx
 import React, { useState } from 'react';
 import ChimViz from './components/ChimViz/ChimViz';
+import SettingsPanel from './components/SettingsPanel/SettingsPanel';
 import * as d3 from 'd3';
+
+import './App.css';
 
 const App: React.FC = () => {
   const [density, setDensity] = useState<number[]>([]);
@@ -82,78 +85,21 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="container-fluid">
-      <div className="row">
-        {/* Settings Panel */}
-        <div className="col-md-3">
-          <div className="card">
-            <div className="card-body">
-              <h5 className="card-title">Settings</h5>
-
-              <div className="form-group">
-                <label htmlFor="densityUpload">Density</label>
-                <input
-                  type="file"
-                  className="form-control"
-                  id="densityUpload"
-                  onChange={handleDensityUpload}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="genesUpload">Font Size</label>
-                <input
-                  type="file"
-                  className="form-control"
-                  id="genesUpload"
-                  onChange={handleGenesUpload}
-                />
-              </div>
-              
-              {/* Font Size Selector */}
-              <div className="form-group">
-                <label htmlFor="fontSize">Font Size</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  id="fontSize"
-                  value={fontSize}
-                  onChange={(e) => setFontSize(Number(e.target.value))}
-                />
-              </div>
-              
-              {/* Width Adjustment */}
-              <div className="form-group">
-                <label htmlFor="width">Width</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  id="width"
-                  value={width}
-                  onChange={(e) => setWidth(Number(e.target.value))}
-                />
-              </div>
-              
-              {/* Height Adjustment */}
-              <div className="form-group">
-                <label htmlFor="height">Height</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  id="height"
-                  value={height}
-                  onChange={(e) => setHeight(Number(e.target.value))}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="col-md-9">
-          <div>
-            <ChimViz densities={density} genes={genes} width={width} height={height} fontSize={fontSize} />
-          </div>
-        </div>
+    <div className="App">
+      <div className="settings-panel">
+        <SettingsPanel
+          onDensityUpload={handleDensityUpload}
+          onGenesUpload={handleGenesUpload}
+          fontSize={fontSize}
+          onFontSizeChange={setFontSize}
+          width={width}
+          onWidthChange={setWidth}
+          height={height}
+          onHeightChange={setHeight}
+        />
+      </div>
+      <div className="visualization-container">
+        <ChimViz densities={density} genes={genes} width={width} height={height} fontSize={fontSize} />
       </div>
     </div>
   );
