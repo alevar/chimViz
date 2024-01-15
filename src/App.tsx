@@ -6,11 +6,27 @@ import * as d3 from 'd3';
 
 import './App.css';
 
+function get_tid(attributes: string): string | null {
+  const startToken = "transcript_id \"";
+  const endToken = "\";";
+
+  const startIndex = attributes.indexOf(startToken);
+  const endIndex = attributes.indexOf(endToken, startIndex);
+
+  if (startIndex !== -1 && endIndex !== -1) {
+    const res = attributes.substring(startIndex + startToken.length, endIndex).trim();
+    return res;
+  } else {
+    return null;
+  }
+}
+
 const App: React.FC = () => {
   const [density, setDensity] = useState<number[]>([]);
   const [genes, setGenes] = useState<number[]>([]);
+  const [pathogenGTF, setPathogenGTF] = useState<number[]>([]);
   const [fontSize, setFontSize] = useState<number>(12);
-  const [width, setWidth] = useState<number>(1400);
+  const [width, setWidth] = useState<number>(1200);
   const [height, setHeight] = useState<number>(500);
 
   const handleDensityUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,11 +89,58 @@ const App: React.FC = () => {
             // If it exists, push the value to the corresponding array
             genes[seqid] = [];
           }
-          genes[seqid].push([gene_name,position]);
+          genes[seqid].push([gene_name, position]);
         });
 
         // Now dataMap contains arrays for each unique value in the 1st column
         setGenes(genes);
+      };
+
+      reader.readAsText(file);
+    }
+  };
+
+  const handlePathogenGTFUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (file) {
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        const rows = result.split('\n');
+
+        // Use an object to store arrays for each unique value in the 1st column
+        let transcripts = {};
+        let genome_end = 0;
+
+        rows.forEach((row) => {
+          const lcs = row.split('\t');
+          if (lcs.length < 9) {
+            return;
+          }
+
+          const start = +lcs[3];
+          const end = +lcs[4];
+
+          if (end > genome_end) {
+            genome_end = end;
+          }
+          
+          if (lcs[2] === "exon") {
+            const tid = get_tid(lcs[8]);
+
+            if (!transcripts[tid]) {
+              transcripts[tid] = [];
+            }
+            transcripts[tid].push([start, end]);
+          }
+        });
+
+        // Now dataMap contains arrays for each unique value in the 1st column
+        setPathogenGTF(transcripts);
+        console.log(genome_end);
+        console.log(transcripts);
       };
 
       reader.readAsText(file);
@@ -90,6 +153,7 @@ const App: React.FC = () => {
         <SettingsPanel
           onDensityUpload={handleDensityUpload}
           onGenesUpload={handleGenesUpload}
+          onPathogenGTFUpload={handlePathogenGTFUpload}
           fontSize={fontSize}
           onFontSizeChange={setFontSize}
           width={width}
@@ -99,7 +163,7 @@ const App: React.FC = () => {
         />
       </div>
       <div className="visualization-container">
-        <ChimViz densities={density} genes={genes} width={width} height={height} fontSize={fontSize} />
+        <ChimViz densities={density} genes={genes} pathogenGTF={pathogenGTF} width={width} height={height} fontSize={fontSize} />
       </div>
     </div>
   );
