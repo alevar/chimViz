@@ -22,10 +22,11 @@ function get_tid(attributes: string): string | null {
 }
 
 const App: React.FC = () => {
-  const [density, setDensity] = useState<string>("");
-  const [genes, setGenes] = useState<string>("");
-  const [pathogenGTF, setPathogenGTF] = useState<string>("");
-  const [integrations, setIntegrations] = useState<string>("");
+  const [density, setDensity] = useState<any[]>([]);
+  const [fai, setFai] = useState<any[]>([]);
+  const [genes, setGenes] = useState<any[]>([]);
+  const [pathogenGTF, setPathogenGTF] = useState<any[]>([]);
+  const [integrations, setIntegrations] = useState<any[]>([]);
   const [fontSize, setFontSize] = useState<number>(12);
   const [width, setWidth] = useState<number>(1200);
   const [height, setHeight] = useState<number>(500);
@@ -60,6 +61,43 @@ const App: React.FC = () => {
 
         // Now dataMap contains arrays for each unique value in the 1st column
         setDensity(densityMap);
+      };
+
+      reader.readAsText(file);
+    }
+  };
+
+  const handleFaiUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    // parse fasta index and load chromosome lengths
+    const file = event.target.files?.[0];
+
+    if (file) {
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        const rows = result.split('\n');
+
+        // Use an object to store arrays for each unique value in the 1st column
+        const faiMap = {};
+
+        rows.forEach((row) => {
+          const columns = row.split('\t');
+          const seqid = columns[0];
+          const length = +columns[1];
+
+          // Check if the unique value in the 1st column already exists in the map
+          if (faiMap[seqid]) {
+            // If it exists, push the value to the corresponding array
+            faiMap[seqid].push(length);
+          } else {
+            // If it doesn't exist, create a new array with the value
+            faiMap[seqid] = [length];
+          }
+        });
+
+        // Now dataMap contains arrays for each unique value in the 1st column
+        setFai(faiMap);
       };
 
       reader.readAsText(file);
@@ -162,13 +200,27 @@ const App: React.FC = () => {
     if (file) {
       const reader = new FileReader();
 
+      const interactions: any[] = [];
+
       reader.onload = (e) => {
         const result = e.target?.result as string;
         const rows = result.split('\n');
+
+        // seqid1, seqid2, pos1, pos2, count
+        rows.forEach((row) => {
+          const columns = row.split('\t');
+          const seqid1 = columns[0];
+          const seqid2 = columns[1];
+          const pos1 = +columns[2];
+          const pos2 = +columns[3];
+          const count = +columns[4];
+
+          interactions.push([seqid1, seqid2, pos1, pos2, count])
+        });
+        setIntegrations(interactions);
       };
-      setIntegrations(integrations);
-    }
-    reader.readAsText(file);
+      reader.readAsText(file);
+    } 
   }
 
   return (
@@ -176,6 +228,7 @@ const App: React.FC = () => {
       <div className="settings-panel">
         <SettingsPanel
           onDensityUpload={handleDensityUpload}
+          onFaiUpload={handleFaiUpload}
           onGenesUpload={handleGenesUpload}
           onPathogenGTFUpload={handlePathogenGTFUpload}
           onIntegrationsUpload={handleIntegrationsUpload}
@@ -188,7 +241,7 @@ const App: React.FC = () => {
         />
       </div>
       <div className="visualization-container">
-        <ChimViz densities={density} genes={genes} path_transcripts={pathogenGTF} integrations={integrations} width={width} height={height} fontSize={fontSize} />
+        <ChimViz densities={density} fai={fai} genes={genes} path_transcripts={pathogenGTF} integrations={integrations} width={width} height={height} fontSize={fontSize} />
       </div>
     </div>
   );

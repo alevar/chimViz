@@ -5,6 +5,7 @@ import "./SettingsPanel.css";
 
 interface SettingsPanelProps {
     onDensityUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    onFaiUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onGenesUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onPathogenGTFUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onIntegrationsUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
@@ -18,6 +19,7 @@ interface SettingsPanelProps {
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({
     onDensityUpload,
+    onFaiUpload,
     onGenesUpload,
     onPathogenGTFUpload,
     onIntegrationsUpload,
@@ -39,6 +41,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         <Form.Group controlId="densityUpload">
                             <Form.Label>Density</Form.Label>
                             <Form.Control type="file" onChange={onDensityUpload} />
+                        </Form.Group>
+
+                        <Form.Group controlId="faiUpload">
+                            <Form.Label>Fasta Index</Form.Label>
+                            <Form.Control type="file" onChange={onFaiUpload} />
                         </Form.Group>
 
                         <Form.Group controlId="genesUpload">

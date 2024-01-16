@@ -5,14 +5,16 @@ import { ChimPlot } from './ChimPlot';
 
 interface ChimVizProps {
     densities: Record<string, number[]>;
+    fai: Record<string, number>;
     genes: Record<string, [string, number][]>;
     path_transcripts: Record<string, [number, number][]>;
+    integrations: [string, string, number, number, number][];
     width: number;
     height: number;
     fontSize: number;
 }
 
-const ChimViz: React.FC<ChimVizProps> = ({ densities, genes, path_transcripts, width, height, fontSize }) => {
+const ChimViz: React.FC<ChimVizProps> = ({ densities, fai, genes, path_transcripts, integrations, width, height, fontSize }) => {
     const svgRef = useRef<SVGSVGElement | null>(null);
 
     const handleDownload = () => {
@@ -37,10 +39,10 @@ const ChimViz: React.FC<ChimVizProps> = ({ densities, genes, path_transcripts, w
 
         const svg = d3.select(svgRef.current);
         svg.selectAll("*").remove();
-        const chim = new ChimPlot(svg, { densities, genes, path_transcripts, width, height, fontSize });
+        const chim = new ChimPlot(svg, { densities, fai, genes, path_transcripts, integrations, width, height, fontSize });
         chim.plot();
         
-    }, [densities, genes, path_transcripts, width, height, fontSize]);
+    }, [densities, fai, genes, path_transcripts, integrations, width, height, fontSize]);
 
     return (
         <div>
