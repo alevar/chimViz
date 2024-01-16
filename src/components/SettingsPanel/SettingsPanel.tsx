@@ -7,6 +7,7 @@ interface SettingsPanelProps {
     onDensityUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onGenesUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onPathogenGTFUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    onIntegrationsUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     fontSize: number;
     onFontSizeChange: (value: number) => void;
     width: number;
@@ -19,6 +20,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     onDensityUpload,
     onGenesUpload,
     onPathogenGTFUpload,
+    onIntegrationsUpload,
     fontSize,
     onFontSizeChange,
     width,
@@ -47,6 +49,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         <Form.Group controlId="PathogenGtfUpload">
                             <Form.Label>Pathogen GTF</Form.Label>
                             <Form.Control type="file" onChange={onPathogenGTFUpload} />
+                        </Form.Group>
+                        
+                        <Form.Group controlId="IntegrationsUpload">
+                            <Form.Label>Integrations</Form.Label>
+                            <Form.Control type="file" onChange={onIntegrationsUpload} />
                         </Form.Group>
 
                         {/* Font Size Section */}

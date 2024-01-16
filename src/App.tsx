@@ -22,9 +22,10 @@ function get_tid(attributes: string): string | null {
 }
 
 const App: React.FC = () => {
-  const [density, setDensity] = useState<number[]>([]);
-  const [genes, setGenes] = useState<number[]>([]);
-  const [pathogenGTF, setPathogenGTF] = useState<number[]>([]);
+  const [density, setDensity] = useState<string>("");
+  const [genes, setGenes] = useState<string>("");
+  const [pathogenGTF, setPathogenGTF] = useState<string>("");
+  const [integrations, setIntegrations] = useState<string>("");
   const [fontSize, setFontSize] = useState<number>(12);
   const [width, setWidth] = useState<number>(1200);
   const [height, setHeight] = useState<number>(500);
@@ -127,25 +128,48 @@ const App: React.FC = () => {
             genome_end = end;
           }
           
-          if (lcs[2] === "exon") {
+          if (lcs[2].toLocaleLowerCase() === "exon") {
             const tid = get_tid(lcs[8]);
 
             if (!transcripts[tid]) {
-              transcripts[tid] = [];
+              transcripts[tid] = {"exons":[],
+                                  "cds":[]};
             }
-            transcripts[tid].push([start, end]);
+            transcripts[tid]["exons"].push([start, end]);
+          }
+          if (lcs[2].toLowerCase() === "cds") {
+            const tid = get_tid(lcs[8]);
+
+            if (!transcripts[tid]) {
+              transcripts[tid] = {"exons":[],
+                                  "cds":[]};
+            }
+            transcripts[tid]["cds"].push([start, end]);
           }
         });
 
         // Now dataMap contains arrays for each unique value in the 1st column
         setPathogenGTF(transcripts);
-        console.log(genome_end);
-        console.log(transcripts);
       };
 
       reader.readAsText(file);
     }
   };
+
+  const handleIntegrationsUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (file) {
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        const rows = result.split('\n');
+      };
+      setIntegrations(integrations);
+    }
+    reader.readAsText(file);
+  }
 
   return (
     <div className="App">
@@ -154,6 +178,7 @@ const App: React.FC = () => {
           onDensityUpload={handleDensityUpload}
           onGenesUpload={handleGenesUpload}
           onPathogenGTFUpload={handlePathogenGTFUpload}
+          onIntegrationsUpload={handleIntegrationsUpload}
           fontSize={fontSize}
           onFontSizeChange={setFontSize}
           width={width}
@@ -163,7 +188,7 @@ const App: React.FC = () => {
         />
       </div>
       <div className="visualization-container">
-        <ChimViz densities={density} genes={genes} pathogenGTF={pathogenGTF} width={width} height={height} fontSize={fontSize} />
+        <ChimViz densities={density} genes={genes} path_transcripts={pathogenGTF} integrations={integrations} width={width} height={height} fontSize={fontSize} />
       </div>
     </div>
   );

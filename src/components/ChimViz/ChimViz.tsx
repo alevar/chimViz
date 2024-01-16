@@ -6,13 +6,13 @@ import { ChimPlot } from './ChimPlot';
 interface ChimVizProps {
     densities: Record<string, number[]>;
     genes: Record<string, [string, number][]>;
-    pathogenGTF: Record<string, [number, number][]>;
+    path_transcripts: Record<string, [number, number][]>;
     width: number;
     height: number;
     fontSize: number;
 }
 
-const ChimViz: React.FC<ChimVizProps> = ({ densities, genes, pathogenGTF, width, height, fontSize }) => {
+const ChimViz: React.FC<ChimVizProps> = ({ densities, genes, path_transcripts, width, height, fontSize }) => {
     const svgRef = useRef<SVGSVGElement | null>(null);
 
     const handleDownload = () => {
@@ -37,9 +37,10 @@ const ChimViz: React.FC<ChimVizProps> = ({ densities, genes, pathogenGTF, width,
 
         const svg = d3.select(svgRef.current);
         svg.selectAll("*").remove();
-        const plot = new ChimPlot(svg, { densities, genes, pathogenGTF, width, height, fontSize });
+        const chim = new ChimPlot(svg, { densities, genes, path_transcripts, width, height, fontSize });
+        chim.plot();
         
-    }, [densities, genes, pathogenGTF, width, height, fontSize]);
+    }, [densities, genes, path_transcripts, width, height, fontSize]);
 
     return (
         <div>
