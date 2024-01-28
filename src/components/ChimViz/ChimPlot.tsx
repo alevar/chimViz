@@ -20,7 +20,7 @@ export class ChimPlot {
             "plot": HostPlot | null,
             "x": number,
             "y": number,
-            "dimensions":{
+            "dimensions": {
                 "font_size": number,
                 "width": number,
                 "height": number,
@@ -34,7 +34,7 @@ export class ChimPlot {
             "plot": ConnectionsPlot | null,
             "x": number,
             "y": number,
-            "dimensions":{
+            "dimensions": {
                 "font_size": number,
                 "width": number,
                 "height": number
@@ -44,7 +44,7 @@ export class ChimPlot {
             "plot": PathogenPlot | null,
             "x": number,
             "y": number,
-            "dimensions":{
+            "dimensions": {
                 "font_size": number,
                 "width": number,
                 "height": number,
@@ -62,8 +62,8 @@ export class ChimPlot {
     private path_transcripts: Record<string, [number, number][]> = {};
     private integrations: any[] = [];
 
-    constructor(svgElement: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, 
-                data: ChimPlotData) {
+    constructor(svgElement: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>,
+        data: ChimPlotData) {
 
         this.width = data.width;
         this.height = data.height;
@@ -81,7 +81,7 @@ export class ChimPlot {
                 "plot": null,
                 "x": 0,
                 "y": 0,
-                "dimensions":{
+                "dimensions": {
                     "font_size": 0,
                     "width": 0,
                     "height": 0,
@@ -95,7 +95,7 @@ export class ChimPlot {
                 "plot": null,
                 "x": 0,
                 "y": 0,
-                "dimensions":{
+                "dimensions": {
                     "font_size": 0,
                     "width": 0,
                     "height": 0
@@ -105,7 +105,7 @@ export class ChimPlot {
                 "plot": null,
                 "x": 0,
                 "y": 0,
-                "dimensions":{
+                "dimensions": {
                     "font_size": 0,
                     "width": 0,
                     "height": 0,
@@ -146,14 +146,14 @@ export class ChimPlot {
 
         // Calculate heights for each section
         this.sections["hostPlot"]["dimensions"]["font_size"] = this.fontSize;
-        this.sections["hostPlot"]["dimensions"]["gene_label_height"] = (maxGeneNameLength * this.fontSize)*8; // height of gene labels
+        this.sections["hostPlot"]["dimensions"]["gene_label_height"] = (maxGeneNameLength * this.fontSize) * 8; // height of gene labels
         this.sections["hostPlot"]["dimensions"]["gene_lines_height"] = (this.width * parameters["idiogram_factor"]); // height of lines connecting labels to idiogram
         this.sections["hostPlot"]["dimensions"]["idiogram_height"] = (this.width * parameters["idiogram_factor"]); // height of idiogram
         this.sections["hostPlot"]["dimensions"]["chromosome_label_height"] = (this.fontSize * 2); // height of chromosome labels
         this.sections["hostPlot"]["dimensions"]["height"] = this.sections["hostPlot"]["dimensions"]["gene_label_height"] +
-                                              this.sections["hostPlot"]["dimensions"]["gene_lines_height"] +
-                                              this.sections["hostPlot"]["dimensions"]["idiogram_height"] +
-                                              this.sections["hostPlot"]["dimensions"]["chromosome_label_height"];
+            this.sections["hostPlot"]["dimensions"]["gene_lines_height"] +
+            this.sections["hostPlot"]["dimensions"]["idiogram_height"] +
+            this.sections["hostPlot"]["dimensions"]["chromosome_label_height"];
         this.sections["hostPlot"]["dimensions"]["width"] = this.width;
         this.sections["hostPlot"]["x"] = 0;
         this.sections["hostPlot"]["y"] = 0;
@@ -166,17 +166,17 @@ export class ChimPlot {
         this.sections["connectionsPlot"]["x"] = 0;
         this.sections["connectionsPlot"]["y"] = this.sections["hostPlot"]["dimensions"]["height"];
 
-        
-        
-        
-        
+
+
+
+
         this.sections["pathogenPlot"]["dimensions"]["font_size"] = this.fontSize;
         this.sections["pathogenPlot"]["dimensions"]["genome_height"] = this.width * parameters["genome_factor"];
         this.sections["pathogenPlot"]["dimensions"]["transcript_height"] = this.width * parameters["transcript_factor"];
 
-        
+
         this.sections["pathogenPlot"]["dimensions"]["height"] = this.sections["pathogenPlot"]["dimensions"]["genome_height"] + // pathogen genome
-                                                                this.sections["pathogenPlot"]["dimensions"]["transcript_height"] * numTranscripts;
+            this.sections["pathogenPlot"]["dimensions"]["transcript_height"] * numTranscripts;
         this.sections["pathogenPlot"]["dimensions"]["width"] = this.width;
         this.sections["pathogenPlot"]["x"] = 0;
         this.sections["pathogenPlot"]["y"] = this.sections["hostPlot"]["dimensions"]["height"] + this.sections["connectionsPlot"]["dimensions"]["height"];
@@ -206,16 +206,16 @@ export class ChimPlot {
 
         // Create instances of HostPlot, ConnectionsPlot, and PathogenPlot
         this.sections["hostPlot"]["plot"] = new HostPlot(hostPlotSvg,
-                                                         this.sections["hostPlot"]["dimensions"],
-                                                         this.densities, 
-                                                         this.fai,
-                                                         this.genes);
+            this.sections["hostPlot"]["dimensions"],
+            this.densities,
+            this.fai,
+            this.genes);
         this.sections["hostPlot"]["plot"].plot();
         const seqids = this.sections["hostPlot"]["plot"].get_seqids();
 
-        this.sections["pathogenPlot"]["plot"] = new PathogenPlot(pathogenPlotSvg, 
-                                                                 this.sections["pathogenPlot"]["dimensions"],
-                                                                 this.path_transcripts);
+        this.sections["pathogenPlot"]["plot"] = new PathogenPlot(pathogenPlotSvg,
+            this.sections["pathogenPlot"]["dimensions"],
+            this.path_transcripts);
         this.sections["pathogenPlot"]["plot"].plot();
 
         const path_data = {
@@ -225,12 +225,15 @@ export class ChimPlot {
             "height": this.sections["pathogenPlot"]["dimensions"]["height"],
             "length": this.sections["pathogenPlot"]["plot"].get_length(),
         }
-        this.sections["connectionsPlot"]["plot"] = new ConnectionsPlot(connectionsPlotSvg, 
-                                                                        this.sections["connectionsPlot"]["dimensions"],
-                                                                        this.integrations,
-                                                                        seqids,
-                                                                        path_data);
-        this.sections["connectionsPlot"]["plot"].plot();
+        this.sections["connectionsPlot"]["plot"] = new ConnectionsPlot(connectionsPlotSvg,
+            this.sections["connectionsPlot"]["dimensions"],
+            this.integrations,
+            seqids,
+            path_data);
+        const used_integrations = this.sections["connectionsPlot"]["plot"].plot();
+
+        // plot integration sites intot he transcriptome map
+        this.sections["pathogenPlot"]["plot"].plot_integrations(used_integrations);
     }
 }
 
@@ -248,14 +251,14 @@ class ConnectionsPlot {
     private connections: any[];
 
     constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>,
-                dimensions: {
-                    "font_size": number,
-                    "width": number,
-                    "height": number
-                },
-                integrations: any[],
-                host_seqids: Record<string, any>,
-                path_seqids: Record<string, any>) {
+        dimensions: {
+            "font_size": number,
+            "width": number,
+            "height": number
+        },
+        integrations: any[],
+        host_seqids: Record<string, any>,
+        path_seqids: Record<string, any>) {
         this.svg = svg;
         this.dimensions = dimensions;
         this.integrations = integrations;
@@ -270,39 +273,42 @@ class ConnectionsPlot {
         if (a > b) {
             [a, b] = [b, a];
         }
-    
+
         // Calculate the midpoint
         const midpoint = (a + b) / 2;
-    
+
         return midpoint;
     }
 
-    private splitDistanceIntoThree(point1: {xpoint: number;ypoint: number;}, point2: {xpoint: number;ypoint: number;}): {xpoint: number;ypoint: number;}[] {
+    private splitDistanceIntoThree(point1: { xpoint: number; ypoint: number; }, point2: { xpoint: number; ypoint: number; }): { xpoint: number; ypoint: number; }[] {
         // Calculate the coordinates of the two intermediate points
         const intermediatePoint1 = {
             xpoint: point1.xpoint + (point2.xpoint - point1.xpoint) / 4,
             ypoint: point1.ypoint + (point2.ypoint - point1.ypoint) / 3,
         };
-    
+
         const intermediatePoint2 = {
             xpoint: point1.xpoint + (3 * (point2.xpoint - point1.xpoint)) / 4,
             ypoint: point1.ypoint + (2 * (point2.ypoint - point1.ypoint)) / 3,
         };
-    
+
         return [point1, intermediatePoint1, intermediatePoint2, point2];
     }
-    
 
-    public plot(): void {
+
+    public plot(): any[] {
+
+        let used_integrations: any[] = [];
 
         this.integrations.forEach(integration => {
+            console.log(integration)
             // get respective data from host_seqids
             const cur_host_seqid = this.host_seqids[integration[0]];
             // skip if undefined
             if (cur_host_seqid === undefined) {
                 return;
             }
-            
+
             // skip if undefined
             if (this.path_seqids === undefined) {
                 return;
@@ -311,27 +317,29 @@ class ConnectionsPlot {
             // map coordinate
             const host_x = cur_host_seqid["x"] + (integration[2] / cur_host_seqid.length) * cur_host_seqid["width"];
             const path_x = this.path_seqids["x"] + (integration[3] / this.path_seqids.length) * this.path_seqids["width"];
-            const points = this.splitDistanceIntoThree({xpoint:host_x,ypoint:0},
-                                                                {xpoint:path_x,ypoint:this.dimensions["height"]});
-    
-            console.log(points)
+            const points = this.splitDistanceIntoThree({ xpoint: host_x, ypoint: 0 },
+                { xpoint: path_x, ypoint: this.dimensions["height"] });
+
+            // Draw a dotted vertical line on the pathogen genome to identify the chimeric junction across all transcripts
             const lineGenerator = d3.line<{ xpoint: number; ypoint: number }>()
                 .x((p) => p.xpoint)
                 .y((p) => p.ypoint)
-                .curve(d3.curveCardinal);
-        
+                .curve(d3.curveBasis);
+
 
             const connection = this.svg.append('path')
                 .datum(points)
                 .attr('d', lineGenerator)
                 .attr('fill', 'none')
-                .style('opacity', '0.3')
+                .style('opacity', integration[4] / 1000)
                 .style('stroke', 'grey') // Adjust line color for gene labels
-                .style('stroke-width', 10);
-                
+                .style('stroke-width', 2);
+
             this.connections.push(connection);
+            used_integrations.push(integration);
 
         });
+        return used_integrations;
     }
 }
 
@@ -344,22 +352,23 @@ class PathogenPlot {
         "genome_height": 0,
         "transcript_height": 0
     };
-    private path_transcripts: Record<string, {"exons":[number,number],"cds":[number,number]}[]> = {};
+    private path_transcripts: Record<string, { "exons": [number, number], "cds": [number, number] }[]> = {};
 
     private genome_plot: any | null = null;
     private transcript_plots: Record<string, TranscriptPlot> = {};
     private genome_length: number = 0;
 
 
-    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, 
-                dimensions: {
-                    "font_size": number,
-                    "width": number,
-                    "height": number,
-                    "genome_height": number,
-                    "transcript_height": number
-                },
-                path_transcripts: Record<string, {"exons":[number,number],"cds":[number,number]}[]>) {
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>,
+        dimensions: {
+            "font_size": number,
+            "width": number,
+            "height": number,
+            "genome_height": number,
+            "transcript_height": number
+        },
+        path_transcripts: Record<string, { "exons": [number, number], "cds": [number, number] }[]>,
+        integrations: any[]) {
         this.svg = svg;
         this.dimensions = dimensions;
         this.path_transcripts = path_transcripts;
@@ -375,7 +384,7 @@ class PathogenPlot {
 
         // loop over transcripts and plot them
         let y_pos = this.dimensions["genome_height"];
-        
+
         Object.entries(this.path_transcripts).forEach(([tid, transcript]) => {
             const transcriptSvg = this.svg.append('svg')
                 .attr('x', 0)
@@ -389,14 +398,32 @@ class PathogenPlot {
                 "height": this.dimensions["transcript_height"]
             }
             this.transcript_plots[tid] = new TranscriptPlot(transcriptSvg,
-                                                      sub_dimensions,
-                                                      this.genome_length,
-                                                      tid,
-                                                      transcript);
+                sub_dimensions,
+                this.genome_length,
+                tid,
+                transcript);
             this.transcript_plots[tid].plot();
             y_pos += this.dimensions["transcript_height"];
         });
+    }
 
+    private plot_integrations(used_integrations: any[]): void {
+        /*
+        plot components for the interactions
+        */
+
+        // plot dotted vertical line to signify integration event
+        used_integrations.forEach(integration => {
+            const path_x = (integration[3] / this.genome_length) * this.dimensions["width"];
+            const verticalLine = this.svg.append('line')
+                .attr('x1', path_x)
+                .attr('y1', 0)
+                .attr('x2', path_x)
+                .attr('y2', this.dimensions["height"])
+                .style('stroke', 'grey')
+                .style('stroke-width', 1)
+                .style('stroke-dasharray', '5,5');
+        });
     }
 
     private makeGenomePlot(): void {
@@ -406,17 +433,89 @@ class PathogenPlot {
                 .flat()
                 .map(interval => interval[1])
         );
-        
-        
+
+
         this.genome_plot = this.svg
-                            .append('rect')
-                            .attr('x', 0)
-                            .attr('y', 0)
-                            .attr('width', this.dimensions["width"])
-                            .attr('height', this.dimensions["genome_height"])
-                            .attr('rx', this.dimensions["genome_height"] / 2)
-                            .attr('ry', this.dimensions["genome_height"] / 2)
-                            .style('fill', '#dddddd');
+            .append('rect')
+            .attr('x', 0)
+            .attr('y', 0)
+            .attr('width', this.dimensions["width"])
+            .attr('height', this.dimensions["genome_height"])
+            .attr('rx', this.dimensions["genome_height"] / 2)
+            .attr('ry', this.dimensions["genome_height"] / 2)
+            .style('fill', '#dddddd');
+
+
+        // process ORFs to plot them independently
+        const unique_orfs = new Set();
+        const orfs = [];
+        // get unique cds across all transcripts
+        for (const tid in this.path_transcripts) {
+            const transcript = this.path_transcripts[tid];
+            if (transcript["cds"].length === 0) {
+                continue;
+            }
+            const cds_string = transcript["cds"].toString();
+            if (!(unique_orfs.has(cds_string))) {
+                unique_orfs.add(cds_string);
+                orfs.push(transcript["cds"]);
+            }
+        }
+
+        console.log(orfs)
+
+        // plot ORFs as rectangles
+        let o_i = 0;
+        let y = 0;
+        const offset = 40;
+        for (const orf of orfs) {
+            if ( o_i >0 ){
+                console.log("orf",orf)
+                // compare to the previous orf. If current start is over previous end (overlap) - increase y
+                // otherwise decrease by offset until 0
+                if ( orf[0][0] < orfs[o_i-1][0][1] ){
+                    y += offset;
+                } else {
+                    y = Math.max(0,y-offset);
+                }
+            }
+            let c_i = 0;
+            for (const cds of orf) {
+                const cds_start = (cds[0] / this.genome_length) * this.dimensions["width"];
+                const cds_end = (cds[1] / this.genome_length) * this.dimensions["width"];
+                const orfSvg = this.svg.append('g'); // Create a group element
+
+                // Draw the rectangle part
+                orfSvg.append('rect')
+                    .attr('x', cds_start)
+                    .attr('y', y)
+                    .attr('width', (cds_end - cds_start))
+                    .attr('height', this.dimensions["genome_height"])
+                    .style('fill', '#FE7A36');
+
+                if ( c_i === orf.length - 1 ){
+                    // Draw the triangle part
+                    const trianglePoints = `${cds_end},${y + this.dimensions["genome_height"]} ${cds_end},${y} ${cds_end + 10},${y + this.dimensions["genome_height"] / 2}`;
+                    orfSvg.append('polygon')
+                        .attr('points', trianglePoints)
+                        .style('fill', '#FE7A36');
+                }
+
+                if (c_i > 0) {
+                    const prev_cds_end = (orf[c_i - 1][1] / this.genome_length) * this.dimensions["width"];
+                    orfSvg.append('line')
+                            .attr('x1', prev_cds_end)
+                            .attr('y1', y + this.dimensions["genome_height"] / 2) // Adjust y position as needed
+                            .attr('x2', cds_start)
+                            .attr('y2', y + this.dimensions["genome_height"] / 2) // Adjust y position as needed
+                            .style('stroke', '#280274') // Adjust line color for gene labels
+                            .style('stroke-width', 1);
+                }
+                
+                c_i += 1;
+            }
+            o_i += 1;
+        }
     }
 }
 
@@ -430,20 +529,20 @@ class TranscriptPlot {
     };
     private genome_length: number;
     private tid: string;
-    private transcript: {"exons":[number,number],"cds":[number,number]} = {"exons":[0,0],"cds":[0,0]};
+    private transcript: { "exons": [number, number], "cds": [number, number] } = { "exons": [0, 0], "cds": [0, 0] };
     private exon_svgs: any;
     private cds_svgs: any;
     private intron_svgs: any;
 
     constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>,
-                dimensions: {
-                    "font_size": number,
-                    "width": number,
-                    "height": number
-                },
-                genome_length: number,
-                tid: string,
-                transcript: {"exons":[number,number],"cds":[number,number]}) {
+        dimensions: {
+            "font_size": number,
+            "width": number,
+            "height": number
+        },
+        genome_length: number,
+        tid: string,
+        transcript: { "exons": [number, number], "cds": [number, number] }) {
         this.svg = svg;
         this.dimensions = dimensions;
         this.genome_length = genome_length;
@@ -460,24 +559,24 @@ class TranscriptPlot {
             const exon_start = (exon[0] / this.genome_length) * this.dimensions["width"];
             const exon_end = (exon[1] / this.genome_length) * this.dimensions["width"];
             const exonSvg = this.svg
-                            .append('rect')
-                            .attr('x', exon_start)
-                            .attr('y', this.dimensions["height"]*((1-0.5)/2))
-                            .attr('width', (exon_end - exon_start))
-                            .attr('height', this.dimensions["height"]*0.5)
-                            .style('fill', '#3652AD');
+                .append('rect')
+                .attr('x', exon_start)
+                .attr('y', this.dimensions["height"] * ((1 - 0.5) / 2))
+                .attr('width', (exon_end - exon_start))
+                .attr('height', this.dimensions["height"] * 0.5)
+                .style('fill', '#3652AD');
             this.exon_svgs.push(exonSvg);
 
             // Draw introns
             if (e_i > 0) {
-                const prev_exon_end = (this.transcript["exons"][e_i-1][1] / this.genome_length) * this.dimensions["width"];
+                const prev_exon_end = (this.transcript["exons"][e_i - 1][1] / this.genome_length) * this.dimensions["width"];
                 const intronSvg = this.svg.append('line')
-                                        .attr('x1', prev_exon_end)
-                                        .attr('y1', this.dimensions["height"]/2) // Adjust y position as needed
-                                        .attr('x2', exon_start)
-                                        .attr('y2', this.dimensions["height"]/2) // Adjust y position as needed
-                                        .style('stroke', '#280274') // Adjust line color for gene labels
-                                        .style('stroke-width', 1);
+                    .attr('x1', prev_exon_end)
+                    .attr('y1', this.dimensions["height"] / 2) // Adjust y position as needed
+                    .attr('x2', exon_start)
+                    .attr('y2', this.dimensions["height"] / 2) // Adjust y position as needed
+                    .style('stroke', '#280274') // Adjust line color for gene labels
+                    .style('stroke-width', 1);
                 this.intron_svgs.push(intronSvg);
             }
             e_i += 1; // increment index
@@ -489,12 +588,12 @@ class TranscriptPlot {
             const cds_start = (cds[0] / this.genome_length) * this.dimensions["width"];
             const cds_end = (cds[1] / this.genome_length) * this.dimensions["width"];
             const cdsSvg = this.svg
-                            .append('rect')
-                            .attr('x', cds_start)
-                            .attr('y', this.dimensions["height"]*((1-0.75)/2))
-                            .attr('width', (cds_end - cds_start))
-                            .attr('height', this.dimensions["height"]*0.75)
-                            .style('fill', '#FE7A36');
+                .append('rect')
+                .attr('x', cds_start)
+                .attr('y', this.dimensions["height"] * ((1 - 0.75) / 2))
+                .attr('width', (cds_end - cds_start))
+                .attr('height', this.dimensions["height"] * 0.75)
+                .style('fill', '#FE7A36');
             this.cds_svgs.push(cdsSvg);
         });
     }
@@ -569,19 +668,19 @@ class HostPlot {
 
     private spacer = 0.5; // percent of the total plot that is reserved for spacing between chromosomes
 
-    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, 
-                dimensions: {
-                    "width": number,
-                    "height": number,
-                    "font_size": number,
-                    "gene_label_height": number,
-                    "gene_lines_height": number,
-                    "idiogram_height": number,
-                    "chromosome_label_height": number
-                },
-                densities: Record<string, number[]>, 
-                fai: Record<string, number>,
-                genes: Record<string, [string, number][]>) {
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>,
+        dimensions: {
+            "width": number,
+            "height": number,
+            "font_size": number,
+            "gene_label_height": number,
+            "gene_lines_height": number,
+            "idiogram_height": number,
+            "chromosome_label_height": number
+        },
+        densities: Record<string, number[]>,
+        fai: Record<string, number>,
+        genes: Record<string, [string, number][]>) {
         this.svg = svg;
         this.densities = densities;
         this.fai = fai;
@@ -594,13 +693,13 @@ class HostPlot {
     public get_seqids(): Record<string, any> {
         const res: Record<string, any> = {};
         Object.entries(this.seqids).forEach(([key, value]) => {
-            res[key] =  {
-                            width: value["width"], 
-                            height: value["height"],
-                            x: value["x"],
-                            y: value["y"],
-                            length: this.fai[key]
-                        };
+            res[key] = {
+                width: value["width"],
+                height: value["height"],
+                x: value["x"],
+                y: value["y"],
+                length: this.fai[key]
+            };
         });
         return res;
     }
@@ -622,11 +721,11 @@ class HostPlot {
                 .attr('height', this.dimensions["height"]);
             this.seqids[key] = {
                 "plot": new IdiogramPlot(idiogramSvg,
-                                         sub_dimensions,
-                                         key, 
-                                         this.fai[key], 
-                                         values, 
-                                         this.genes[key]),
+                    sub_dimensions,
+                    key,
+                    this.fai[key],
+                    values,
+                    this.genes[key]),
                 "x": x_pos,
                 "y": 0,
                 "width": idiogramWidth,
@@ -704,7 +803,7 @@ class IdiogramPlot {
     }
 
     private makeIdiogram(): void {
-    
+
         // Create a gradient for the heatmap
         const gradient = this.svg
             .append('defs')
@@ -730,15 +829,15 @@ class IdiogramPlot {
             .attr('y', this.y_section.y_heatmap)
             .attr('width', this.dimensions["width"])
             .attr('height', this.dimensions["idiogram_height"])
-            .attr('rx', this.dimensions["idiogram_height"]/2)
-            .attr('ry', this.dimensions["idiogram_height"]/2)
+            .attr('rx', this.dimensions["idiogram_height"] / 2)
+            .attr('ry', this.dimensions["idiogram_height"] / 2)
             .style('fill', `url(#heatmap-gradient-${this.seqid})`); // Use the heatmap gradient
 
         // Add label text underneath the rectangle
         this.svg
             .append('text')
             .attr('x', this.dimensions["width"] / 2)
-            .attr('y', this.y_section.y_seqid_label+this.dimensions["font_size"])
+            .attr('y', this.y_section.y_seqid_label + this.dimensions["font_size"])
             .attr('text-anchor', 'middle') // Center the text
             .style('fill', '#000000') // Adjust text color
             .style('font-size', this.dimensions["font_size"] + "px")
@@ -748,7 +847,7 @@ class IdiogramPlot {
     private plotLables(): void {
         const label_width_percent = (this.dimensions["font_size"] / this.dimensions["width"]) * 100;
         const label_width = label_width_percent * (this.dimensions["width"] / 100);
-        
+
 
         // Check if there are gene labels for the current rectangle
         if (this.genes) {
@@ -779,10 +878,10 @@ class IdiogramPlot {
                     this.svg
                         .append('text')
                         .attr('x', `${gene_label_adjusted_xpos}%`)
-                        .attr('y', this.y_section.y_gene_labels+this.y_section.y_gene_lines) // Adjust y-position as needed for the gene label
+                        .attr('y', this.y_section.y_gene_labels + this.y_section.y_gene_lines) // Adjust y-position as needed for the gene label
                         .attr('text-anchor', 'end') // Center the text
                         .style('fill', '#ff0000') // Adjust text color for gene labels
-                        .attr('transform', `rotate(90 ${gene_label_adjusted_xpos * (this.dimensions["width"] / 100)},${this.y_section.y_gene_labels+this.y_section.y_gene_lines})`) // Rotate text 90 degrees
+                        .attr('transform', `rotate(90 ${gene_label_adjusted_xpos * (this.dimensions["width"] / 100)},${this.y_section.y_gene_labels + this.y_section.y_gene_lines})`) // Rotate text 90 degrees
                         .style('font-size', this.dimensions["font_size"] + "px") // Adjust font size
                         .text(geneName);
 
@@ -802,14 +901,14 @@ class IdiogramPlot {
                         .attr('x1', gene_label_adjusted_xpos + '%')
                         .attr('y1', this.y_section.y_gene_lines + line_segment_xshift)
                         .attr('x2', gene_label_xpos + '%')
-                        .attr('y2', this.y_section.y_gene_lines + line_segment_xshift*2) // Adjust y-position as needed for the line
+                        .attr('y2', this.y_section.y_gene_lines + line_segment_xshift * 2) // Adjust y-position as needed for the line
                         .style('stroke', '#ff0000') // Adjust line color for gene labels
                         .style('stroke-width', 1);
 
                     this.svg
                         .append('line')
                         .attr('x1', gene_label_xpos + '%')
-                        .attr('y1', this.y_section.y_gene_lines + line_segment_xshift*2)
+                        .attr('y1', this.y_section.y_gene_lines + line_segment_xshift * 2)
                         .attr('x2', gene_label_xpos + '%')
                         .attr('y2', this.y_section.y_heatmap) // Adjust y-position as needed for the line
                         .style('stroke', '#ff0000') // Adjust line color for gene labels
@@ -818,7 +917,7 @@ class IdiogramPlot {
                 gene_index += 1;
             });
         }
-    
+
     }
 
 
