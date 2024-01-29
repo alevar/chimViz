@@ -1,10 +1,66 @@
 import * as d3 from 'd3';
 
+function adjustIntervals(intervals: Interval[], separator: number): Interval[] {
+    // Base case: when there are no intervals or only one interval
+    if (intervals.length <= 1) {
+        return intervals;
+    }
+
+    // Sort intervals by their start position
+    intervals.sort((a, b) => a[0] - b[0]);
+
+    // Recursive function to adjust intervals
+    function adjustRecursive(index: number): void {
+        if (index <= 0) {
+            // Base case: reached the beginning of the array
+            return;
+        }
+
+        const currentInterval = intervals[index];
+        const leftNeighbor = intervals[index - 1];
+
+        // There is an overlap with the left neighbor
+        const overlap = Math.max(0, (leftNeighbor[1] - currentInterval[0]) - separator);
+        let adjustAmount = overlap / 2;
+
+        // Adjust position of the left neighbor
+        if (leftNeighbor[0] - adjustAmount < 0) {
+            adjustAmount = leftNeighbor[0];
+        }
+        leftNeighbor[1] -= adjustAmount;
+        leftNeighbor[0] -= adjustAmount;
+
+        // Recursive call for the adjusted left neighbor
+        adjustRecursive(index - 1);
+
+        // adjust current element according to the adjusted left neighbor
+        const new_overlap = Math.min(0, (intervals[index][0] - intervals[index - 1][1]) - separator);
+        intervals[index][0] = intervals[index][0] - new_overlap;
+        intervals[index][1] = intervals[index][1] - new_overlap;
+
+        return
+    }
+
+    adjustRecursive(intervals.length - 1);
+}
+
+function computeMidpoint(a: number, b: number): number {
+    // Ensure a is less than b
+    if (a > b) {
+        [a, b] = [b, a];
+    }
+
+    // Calculate the midpoint
+    const midpoint = (a + b) / 2;
+
+    return midpoint;
+}
+
 interface ChimPlotData {
     densities: Record<string, number[]>;
     fai: Record<string, number>;
     genes: Record<string, [string, number][]>;
-    path_transcripts: Record<string, [number, number][]>;
+    gtf_data: any;
     integrations: any[];
     width: number;
     height: number;
@@ -59,7 +115,7 @@ export class ChimPlot {
     private densities: Record<string, number[]> = {};
     private fai: Record<string, number> = {};
     private genes: Record<string, [string, number][]> = {};
-    private path_transcripts: Record<string, [number, number][]> = {};
+    private gtf_data: any = {"transcripts":[],"genome_components":[]};
     private integrations: any[] = [];
 
     constructor(svgElement: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>,
@@ -72,7 +128,7 @@ export class ChimPlot {
         this.densities = data.densities;
         this.fai = data.fai;
         this.genes = data.genes;
-        this.path_transcripts = data.path_transcripts;
+        this.gtf_data = data.gtf_data;
         this.integrations = data.integrations;
 
         this.svg = svgElement;
@@ -128,7 +184,7 @@ export class ChimPlot {
     private setupSections(): void {
         const parameters = {
             "idiogram_factor": 0.025,
-            "genome_factor": 0.025,
+            "genome_factor": 0.15,
             "transcript_factor": 0.02,
             "connections_factor": 0.3
         }
@@ -137,7 +193,7 @@ export class ChimPlot {
         // 1. get maximum length of gene names
         const maxGeneNameLength = Object.keys(this.genes).reduce((max, key) => Math.max(max, key.length), 0);
         // 2. get number of transcripts
-        const numTranscripts = Object.keys(this.path_transcripts).length;
+        const numTranscripts = Object.keys(this.gtf_data["transcripts"]).length;
 
         // Since width is invariant - we should deduce all heights and proportions relative to the width
 
@@ -214,8 +270,8 @@ export class ChimPlot {
         const seqids = this.sections["hostPlot"]["plot"].get_seqids();
 
         this.sections["pathogenPlot"]["plot"] = new PathogenPlot(pathogenPlotSvg,
-            this.sections["pathogenPlot"]["dimensions"],
-            this.path_transcripts);
+                                                                this.sections["pathogenPlot"]["dimensions"],
+                                                                this.gtf_data);
         this.sections["pathogenPlot"]["plot"].plot();
 
         const path_data = {
@@ -266,18 +322,6 @@ class ConnectionsPlot {
         this.path_seqids = path_seqids;
 
         this.connections = [];
-    }
-
-    private computeMidpoint(a: number, b: number): number {
-        // Ensure a is less than b
-        if (a > b) {
-            [a, b] = [b, a];
-        }
-
-        // Calculate the midpoint
-        const midpoint = (a + b) / 2;
-
-        return midpoint;
     }
 
     private splitDistanceIntoThree(point1: { xpoint: number; ypoint: number; }, point2: { xpoint: number; ypoint: number; }): { xpoint: number; ypoint: number; }[] {
@@ -352,7 +396,7 @@ class PathogenPlot {
         "genome_height": 0,
         "transcript_height": 0
     };
-    private path_transcripts: Record<string, { "exons": [number, number], "cds": [number, number] }[]> = {};
+    private gtf_data: any = {};
 
     private genome_plot: any | null = null;
     private transcript_plots: Record<string, TranscriptPlot> = {};
@@ -367,11 +411,10 @@ class PathogenPlot {
             "genome_height": number,
             "transcript_height": number
         },
-        path_transcripts: Record<string, { "exons": [number, number], "cds": [number, number] }[]>,
-        integrations: any[]) {
+        gtf_data: any) {
         this.svg = svg;
         this.dimensions = dimensions;
-        this.path_transcripts = path_transcripts;
+        this.gtf_data = gtf_data;
         this.genome_length = 0;
     }
 
@@ -385,7 +428,7 @@ class PathogenPlot {
         // loop over transcripts and plot them
         let y_pos = this.dimensions["genome_height"];
 
-        Object.entries(this.path_transcripts).forEach(([tid, transcript]) => {
+        Object.entries(this.gtf_data["transcripts"]).forEach(([tid, transcript]) => {
             const transcriptSvg = this.svg.append('svg')
                 .attr('x', 0)
                 .attr('y', y_pos)
@@ -407,7 +450,7 @@ class PathogenPlot {
         });
     }
 
-    private plot_integrations(used_integrations: any[]): void {
+    public plot_integrations(used_integrations: any[]): void {
         /*
         plot components for the interactions
         */
@@ -427,87 +470,234 @@ class PathogenPlot {
     }
 
     private makeGenomePlot(): void {
-        this.genome_length = Math.max(
-            ...Object.values(this.path_transcripts)
-                .map(transcript => transcript.exons)
-                .flat()
-                .map(interval => interval[1])
-        );
+        this.genome_length = this.gtf_data["genome_end"]
 
+        const da_plot_height = this.dimensions["genome_height"] * 0.55;
+        const orf_plot_y = this.dimensions["genome_height"] * 0.65;
+        const orf_plot_height = this.dimensions["genome_height"] * 0.35;
 
+        // plot genome with LTRs and donor and acceptors
         this.genome_plot = this.svg
             .append('rect')
             .attr('x', 0)
-            .attr('y', 0)
+            .attr('y', (da_plot_height/2)-(da_plot_height/8))
             .attr('width', this.dimensions["width"])
-            .attr('height', this.dimensions["genome_height"])
-            .attr('rx', this.dimensions["genome_height"] / 2)
-            .attr('ry', this.dimensions["genome_height"] / 2)
+            .attr('height', da_plot_height/4)
+            .attr('rx', da_plot_height / 16)
+            .attr('ry', da_plot_height / 16)
             .style('fill', '#dddddd');
+
+        // process donor labels
+        const char_width = this.dimensions["font_size"] / 2;
+        const raw_donor_positions: Interval[] = [];
+        const spread_donor_positions: Interval[] = [];
+        const raw_acceptor_positions: Interval[] = [];
+        const spread_acceptor_positions: Interval[] = [];
+        this.gtf_data["genome_components"].forEach(component => {
+            if (component["type"] !== "donor" && component["type"] !== "acceptor") {
+                return;
+            }
+            const percent_position = (component["position"] / this.genome_length) * this.dimensions["width"];
+            const label_width = component["name"].length * char_width;
+            const interval_start = percent_position - label_width / 2;
+            const interval_end = percent_position + label_width / 2;
+            if (component["type"] === "donor"){
+                raw_donor_positions.push([interval_start, interval_end]);
+                spread_donor_positions.push([interval_start, interval_end]);
+            }
+            else{
+                raw_acceptor_positions.push([interval_start, interval_end]);
+                spread_acceptor_positions.push([interval_start, interval_end]);
+            }
+        });
+
+        const separator = 20;
+        adjustIntervals(spread_donor_positions, separator);
+        adjustIntervals(spread_acceptor_positions, separator);
+
+        // iterate over genome components and plot them accordingly
+        let donor_i = 0;
+        let acceptor_i = 0;
+        for (const component of this.gtf_data["genome_components"]) {
+            if ( component["type"] === "ltr" ){
+                this.svg.append('rect')
+                    .attr('x', (component["position"][0] / this.genome_length) * this.dimensions["width"])
+                    .attr('y', (da_plot_height/2)-(da_plot_height/8))
+                    .attr('width', ((component["position"][1] - component["position"][0]) / this.genome_length) * this.dimensions["width"])
+                    .attr('height', da_plot_height/4)
+                    .attr('rx', da_plot_height / 16)
+                    .attr('ry', da_plot_height / 16)
+                    .style('fill', '#3652AD');
+                // add text label to the middle of the rectangle
+                this.svg.append('text')
+                    .attr('x', (component["position"][0] / this.genome_length) * this.dimensions["width"] + (((component["position"][1] - component["position"][0]) / this.genome_length) * this.dimensions["width"])/2)
+                    .attr('y', (da_plot_height/2)+(da_plot_height/8))
+                    .attr('text-anchor', 'middle')
+                    .style('fill', 'white')
+                    .style('font-size', this.dimensions["font_size"])
+                    .text(component["name"]);
+            }
+            let da_x = 0;
+            let raw_da_x = 0;
+            let da_color = "#red";
+            let ys = [0,0,0,0];
+            if ( component["type"] === "donor" ){
+                const donor_position = spread_donor_positions[donor_i];
+                da_x = computeMidpoint(donor_position[0], donor_position[1]);
+                raw_da_x = computeMidpoint(raw_donor_positions[donor_i][0], raw_donor_positions[donor_i][1]);
+                const da_y = this.dimensions.font_size;
+                da_color = "#ff0000";
+                this.svg.append('text')
+                    .attr('x', da_x)
+                    .attr('y', da_y)
+                    .attr('text-anchor', 'middle')
+                    .style('fill', 'black')
+                    .style('font-size', this.dimensions["font_size"])
+                    .text(component["name"]);
+                donor_i += 1;
+
+                const line_segment_xshift = ((da_y - da_plot_height/2) / 3);
+                ys = [da_y,
+                      da_y - line_segment_xshift,
+                      da_y - (line_segment_xshift*2),
+                      da_y - (line_segment_xshift*3)];
+            }
+            if ( component["type"] === "acceptor" ){
+                const acceptor_position = spread_acceptor_positions[acceptor_i];
+                da_x = computeMidpoint(acceptor_position[0], acceptor_position[1]);
+                raw_da_x = computeMidpoint(raw_acceptor_positions[acceptor_i][0], raw_acceptor_positions[acceptor_i][1]);
+                const da_y = da_plot_height;
+                da_color = "#000000";
+                this.svg.append('text')
+                    .attr('x', da_x)
+                    .attr('y', da_y)
+                    .attr('text-anchor', 'middle')
+                    .style('fill', 'black')
+                    .style('font-size', this.dimensions["font_size"])
+                    .text(component["name"]);
+                acceptor_i += 1;
+
+                const line_segment_xshift = ((da_y - da_plot_height/2) / 3);
+                ys = [da_y - this.dimensions["font_size"], 
+                      da_y - line_segment_xshift, 
+                      da_y - (line_segment_xshift * 2),
+                      da_plot_height/2];
+            }
+
+            // Draw a line connecting the gene label to the rectangle
+            this.svg
+                .append('line')
+                .attr('x1', da_x)
+                .attr('y1', ys[0])
+                .attr('x2', da_x)
+                .attr('y2', ys[1]) // Adjust y-position as needed for the line
+                .style('stroke', da_color) // Adjust line color for gene labels
+                .style('stroke-width', 1);
+
+            this.svg
+                .append('line')
+                .attr('x1', da_x)
+                .attr('y1', ys[1])
+                .attr('x2', raw_da_x)
+                .attr('y2', ys[2]) // Adjust y-position as needed for the line
+                .style('stroke', da_color) // Adjust line color for gene labels
+                .style('stroke-width', 1);
+
+            this.svg
+                .append('line')
+                .attr('x1', raw_da_x)
+                .attr('y1', ys[2])
+                .attr('x2', raw_da_x)
+                .attr('y2', ys[3]) // Adjust y-position as needed for the line
+                .style('stroke', da_color) // Adjust line color for gene labels
+                .style('stroke-width', 1);
+        }
 
 
         // process ORFs to plot them independently
         const unique_orfs = new Set();
         const orfs = [];
         // get unique cds across all transcripts
-        for (const tid in this.path_transcripts) {
-            const transcript = this.path_transcripts[tid];
+        for (const tid in this.gtf_data["transcripts"]) {
+            const transcript = this.gtf_data["transcripts"][tid];
             if (transcript["cds"].length === 0) {
                 continue;
             }
             const cds_string = transcript["cds"].toString();
             if (!(unique_orfs.has(cds_string))) {
                 unique_orfs.add(cds_string);
-                orfs.push(transcript["cds"]);
+                orfs.push({"orf":transcript["cds"],"y":0});
             }
         }
 
-        console.log(orfs)
+        // sort orfs
+        orfs.sort((a, b) => {
+            const a_start = a["orf"][0][0];
+            const b_start = b["orf"][0][0];
+            return a_start - b_start;
+        });
+
+        // compute the number of layers needed to plot all ORFs
+        let rows: number[] = []; // keeps the last occupied position in each row
+        for (const orf of orfs) {
+            let found_row = false;
+            let row_i = 0;
+            for (const row of rows) {
+                if ( orf["orf"][0][0] > row ){
+                    found_row = true;
+                    rows[row_i] = orf["orf"].at(-1)[1];
+                    orf["y"] = row_i;
+                    break;
+                }
+                row_i += 1;
+            }
+            if (!found_row) {
+                rows.push(orf["orf"].at(-1)[1]);
+                orf["y"] = rows.length - 1;
+            }
+        }
+
+        const orf_height = (orf_plot_height / rows.length)*0.8;
+        const offset = orf_plot_height / rows.length;
 
         // plot ORFs as rectangles
         let o_i = 0;
-        let y = 0;
-        const offset = 40;
         for (const orf of orfs) {
-            if ( o_i >0 ){
-                console.log("orf",orf)
-                // compare to the previous orf. If current start is over previous end (overlap) - increase y
-                // otherwise decrease by offset until 0
-                if ( orf[0][0] < orfs[o_i-1][0][1] ){
-                    y += offset;
-                } else {
-                    y = Math.max(0,y-offset);
-                }
-            }
             let c_i = 0;
-            for (const cds of orf) {
+            for (const cds of orf["orf"]) {
                 const cds_start = (cds[0] / this.genome_length) * this.dimensions["width"];
                 const cds_end = (cds[1] / this.genome_length) * this.dimensions["width"];
                 const orfSvg = this.svg.append('g'); // Create a group element
 
+                const orf_y = orf_plot_y + orf["y"] * offset;
+
                 // Draw the rectangle part
-                orfSvg.append('rect')
+                let cur_seg = orfSvg.append('rect')
                     .attr('x', cds_start)
-                    .attr('y', y)
-                    .attr('width', (cds_end - cds_start))
-                    .attr('height', this.dimensions["genome_height"])
+                    .attr('y', orf_y)
+                    .attr('height', orf_height)
                     .style('fill', '#FE7A36');
 
-                if ( c_i === orf.length - 1 ){
+                if ( c_i === orf["orf"].length - 1 ){
+                    cur_seg.attr('width', (cds_end - cds_start)-10)
                     // Draw the triangle part
-                    const trianglePoints = `${cds_end},${y + this.dimensions["genome_height"]} ${cds_end},${y} ${cds_end + 10},${y + this.dimensions["genome_height"] / 2}`;
+                    const trianglePoints = `${cds_end-10},${orf_y + orf_height} ${cds_end-10},${orf_y} ${cds_end},${orf_y + orf_height / 2}`;
                     orfSvg.append('polygon')
                         .attr('points', trianglePoints)
                         .style('fill', '#FE7A36');
                 }
+                else{
+                    // Draw the rectangle part
+                    cur_seg.attr('width', (cds_end - cds_start))
+                }
 
                 if (c_i > 0) {
-                    const prev_cds_end = (orf[c_i - 1][1] / this.genome_length) * this.dimensions["width"];
+                    const prev_cds_end = (orf["orf"][c_i - 1][1] / this.genome_length) * this.dimensions["width"];
                     orfSvg.append('line')
                             .attr('x1', prev_cds_end)
-                            .attr('y1', y + this.dimensions["genome_height"] / 2) // Adjust y position as needed
+                            .attr('y1', orf_y + orf_height / 2) // Adjust y position as needed
                             .attr('x2', cds_start)
-                            .attr('y2', y + this.dimensions["genome_height"] / 2) // Adjust y position as needed
+                            .attr('y2', orf_y + orf_height / 2) // Adjust y position as needed
                             .style('stroke', '#280274') // Adjust line color for gene labels
                             .style('stroke-width', 1);
                 }
@@ -864,7 +1054,7 @@ class IdiogramPlot {
             });
 
             const separator = 0.1;
-            this.adjustIntervals(spread_label_positions, separator);
+            adjustIntervals(spread_label_positions, separator);
 
             let gene_index = 0;
             this.genes.forEach(([geneName, genePosition]) => {
@@ -918,50 +1108,5 @@ class IdiogramPlot {
             });
         }
 
-    }
-
-
-    private adjustIntervals(intervals: Interval[], separator: number): Interval[] {
-        // Base case: when there are no intervals or only one interval
-        if (intervals.length <= 1) {
-            return intervals;
-        }
-
-        // Sort intervals by their start position
-        intervals.sort((a, b) => a[0] - b[0]);
-
-        // Recursive function to adjust intervals
-        function adjustRecursive(index: number): void {
-            if (index <= 0) {
-                // Base case: reached the beginning of the array
-                return;
-            }
-
-            const currentInterval = intervals[index];
-            const leftNeighbor = intervals[index - 1];
-
-            // There is an overlap with the left neighbor
-            const overlap = Math.max(0, (leftNeighbor[1] - currentInterval[0]) - separator);
-            let adjustAmount = overlap / 2;
-
-            // Adjust position of the left neighbor
-            if (leftNeighbor[0] - adjustAmount < 0) {
-                adjustAmount = leftNeighbor[0];
-            }
-            leftNeighbor[1] -= adjustAmount;
-            leftNeighbor[0] -= adjustAmount;
-
-            // Recursive call for the adjusted left neighbor
-            adjustRecursive(index - 1);
-
-            // adjust current element according to the adjusted left neighbor
-            const new_overlap = Math.min(0, (intervals[index][0] - intervals[index - 1][1]) - separator);
-            intervals[index][0] = intervals[index][0] - new_overlap;
-            intervals[index][1] = intervals[index][1] - new_overlap;
-
-            return
-        }
-
-        adjustRecursive(intervals.length - 1);
     }
 }

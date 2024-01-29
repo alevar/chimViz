@@ -7,14 +7,14 @@ interface ChimVizProps {
     densities: Record<string, number[]>;
     fai: Record<string, number>;
     genes: Record<string, [string, number][]>;
-    path_transcripts: Record<string, [number, number][]>;
+    gtf_data: any;
     integrations: [string, string, number, number, number][];
     width: number;
     height: number;
     fontSize: number;
 }
 
-const ChimViz: React.FC<ChimVizProps> = ({ densities, fai, genes, path_transcripts, integrations, width, height, fontSize }) => {
+const ChimViz: React.FC<ChimVizProps> = ({ densities, fai, genes, gtf_data, integrations, width, height, fontSize }) => {
     const svgRef = useRef<SVGSVGElement | null>(null);
 
     const handleDownload = () => {
@@ -39,10 +39,10 @@ const ChimViz: React.FC<ChimVizProps> = ({ densities, fai, genes, path_transcrip
 
         const svg = d3.select(svgRef.current);
         svg.selectAll("*").remove();
-        const chim = new ChimPlot(svg, { densities, fai, genes, path_transcripts, integrations, width, height, fontSize });
+        const chim = new ChimPlot(svg, { densities, fai, genes, gtf_data, integrations, width, height, fontSize });
         chim.plot();
         
-    }, [densities, fai, genes, path_transcripts, integrations, width, height, fontSize]);
+    }, [densities, fai, genes, gtf_data, integrations, width, height, fontSize]);
 
     return (
         <div>

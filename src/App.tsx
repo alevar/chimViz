@@ -6,8 +6,8 @@ import * as d3 from 'd3';
 
 import './App.css';
 
-function get_tid(attributes: string): string | null {
-  const startToken = "transcript_id \"";
+function get_attribute(attributes: string, key: string): string | null {
+  const startToken = key+" \"";
   const endToken = "\";";
 
   const startIndex = attributes.indexOf(startToken);
@@ -25,7 +25,7 @@ const App: React.FC = () => {
   const [density, setDensity] = useState<any[]>([]);
   const [fai, setFai] = useState<any[]>([]);
   const [genes, setGenes] = useState<any[]>([]);
-  const [pathogenGTF, setPathogenGTF] = useState<any[]>([]);
+  const [pathogenGTF, setPathogenGTF] = useState<any>({"transcripts": [],"genome_components": []});
   const [integrations, setIntegrations] = useState<any[]>([]);
   const [fontSize, setFontSize] = useState<number>(12);
   const [width, setWidth] = useState<number>(1200);
@@ -152,6 +152,7 @@ const App: React.FC = () => {
         // Use an object to store arrays for each unique value in the 1st column
         let transcripts = {};
         let genome_end = 0;
+        let genome_components = [];
 
         rows.forEach((row) => {
           const lcs = row.split('\t');
@@ -160,14 +161,14 @@ const App: React.FC = () => {
           }
 
           const start = +lcs[3];
-          const end = +lcs[4];
+          const end = + lcs[4];
 
           if (end > genome_end) {
             genome_end = end;
           }
           
           if (lcs[2].toLocaleLowerCase() === "exon") {
-            const tid = get_tid(lcs[8]);
+            const tid = get_attribute(lcs[8],"transcript_id");
 
             if (!transcripts[tid]) {
               transcripts[tid] = {"exons":[],
@@ -176,7 +177,7 @@ const App: React.FC = () => {
             transcripts[tid]["exons"].push([start, end]);
           }
           if (lcs[2].toLowerCase() === "cds") {
-            const tid = get_tid(lcs[8]);
+            const tid = get_attribute(lcs[8],"transcript_id");
 
             if (!transcripts[tid]) {
               transcripts[tid] = {"exons":[],
@@ -184,10 +185,49 @@ const App: React.FC = () => {
             }
             transcripts[tid]["cds"].push([start, end]);
           }
+          if (lcs[2].toLocaleLowerCase() === "long_terminal_repeat"){
+            const ltr_name = get_attribute(lcs[8],"note");
+            genome_components.push({"type": "ltr", "position": [start, end],"name":ltr_name});
+          }
         });
 
+        // extract introns from exons
+        let gtf_donors = new Set();
+        let gtf_acceptors = new Set();
+        for (const tid in transcripts){
+          const exons = transcripts[tid]["exons"];
+
+          if (exons.length > 1) {
+            for (let i = 0; i < exons.length - 1; i++) {
+              const intron_start = exons[i][1];
+              const intron_end = exons[i+1][0];
+              gtf_donors.add(intron_start);
+              gtf_acceptors.add(intron_end);
+            }
+          }
+        }
+        // sort donors and acceptors into lists
+        const gtf_donor_list = Array.from(gtf_donors);
+        gtf_donor_list.sort((a,b) => a-b);
+        const gtf_acceptor_list = Array.from(gtf_acceptors);
+        gtf_acceptor_list.sort((a,b) => a-b);
+        // add donors and acceptors to the genome components
+        let d_i = 0;
+        for (const donor of gtf_donor_list) {
+          genome_components.push({"type": "donor", "position": donor, "name": "d"+d_i});
+          d_i++;
+        }
+        let a_i = 0;
+        for (const acceptor of gtf_acceptor_list) {
+          genome_components.push({"type": "acceptor", "position": acceptor, "name": "a"+a_i});
+          a_i++;
+        }
+
         // Now dataMap contains arrays for each unique value in the 1st column
-        setPathogenGTF(transcripts);
+        const gtf_data = {"transcripts": transcripts,
+                    "genome_end": genome_end,
+                    "genome_components": genome_components};
+        setPathogenGTF(gtf_data);
       };
 
       reader.readAsText(file);
@@ -241,7 +281,7 @@ const App: React.FC = () => {
         />
       </div>
       <div className="visualization-container">
-        <ChimViz densities={density} fai={fai} genes={genes} path_transcripts={pathogenGTF} integrations={integrations} width={width} height={height} fontSize={fontSize} />
+        <ChimViz densities={density} fai={fai} genes={genes} gtf_data={pathogenGTF} integrations={integrations} width={width} height={height} fontSize={fontSize} />
       </div>
     </div>
   );
