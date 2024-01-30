@@ -82,8 +82,7 @@ export class ChimPlot {
                 "height": number,
                 "gene_label_height": number,
                 "gene_lines_height": number,
-                "idiogram_height": number,
-                "chromosome_label_height": number
+                "idiogram_height": number
             }
         },
         "connectionsPlot": {
@@ -142,8 +141,7 @@ export class ChimPlot {
                     "height": 0,
                     "gene_label_height": 0,
                     "gene_lines_height": 0,
-                    "idiogram_height": 0,
-                    "chromosome_label_height": 0
+                    "idiogram_height": 0
                 }
             },
             "connectionsPlot": {
@@ -221,11 +219,9 @@ export class ChimPlot {
         this.sections["hostPlot"]["dimensions"]["gene_label_height"] = (maxGeneNameLength * this.fontSize) * 8; // height of gene labels
         this.sections["hostPlot"]["dimensions"]["gene_lines_height"] = (this.width * parameters["idiogram_factor"]); // height of lines connecting labels to idiogram
         this.sections["hostPlot"]["dimensions"]["idiogram_height"] = (this.width * parameters["idiogram_factor"]); // height of idiogram
-        this.sections["hostPlot"]["dimensions"]["chromosome_label_height"] = (this.fontSize * 2); // height of chromosome labels
         this.sections["hostPlot"]["dimensions"]["height"] = this.sections["hostPlot"]["dimensions"]["gene_label_height"] +
             this.sections["hostPlot"]["dimensions"]["gene_lines_height"] +
-            this.sections["hostPlot"]["dimensions"]["idiogram_height"] +
-            this.sections["hostPlot"]["dimensions"]["chromosome_label_height"];
+            this.sections["hostPlot"]["dimensions"]["idiogram_height"];
         this.sections["hostPlot"]["dimensions"]["width"] = this.width;
         this.sections["hostPlot"]["x"] = 0;
         this.sections["hostPlot"]["y"] = 0;
@@ -388,7 +384,7 @@ class ConnectionsPlot {
                 .datum(points)
                 .attr('d', lineGenerator)
                 .attr('fill', 'none')
-                .style('opacity', integration[4] / 1000)
+                .style('opacity', integration[4] / 500)
                 .style('stroke', integration[5]) // Adjust line color for gene labels
                 .style('stroke-width', 2);
 
@@ -463,6 +459,7 @@ class PathogenPlot {
                 .attr('x2', path_x)
                 .attr('y2', this.integrations_height)
                 .style('stroke', integration[5])
+                .style('opacity', integration[4] / 500)
                 .style('stroke-width', 1)
                 .style('stroke-dasharray', '5,5');
         });
@@ -819,8 +816,7 @@ class HostPlot {
         "height": 0,
         "gene_label_height": 0,
         "gene_lines_height": 0,
-        "idiogram_height": 0,
-        "chromosome_label_height": 0
+        "idiogram_height": 0
     };
 
     private seqids: Record<string, {
@@ -840,8 +836,7 @@ class HostPlot {
             "font_size": number,
             "gene_label_height": number,
             "gene_lines_height": number,
-            "idiogram_height": number,
-            "chromosome_label_height": number
+            "idiogram_height": number
         },
         densities: Record<string, number[]>,
         fai: Record<string, number>,
@@ -913,8 +908,7 @@ class IdiogramPlot {
         "height": 0,
         "gene_label_height": 0,
         "gene_lines_height": 0,
-        "idiogram_height": 0,
-        "chromosome_label_height": 0
+        "idiogram_height": 0
     };
     private colorScale = d3.scaleSequential(d3.interpolateViridis).domain([0, 1]);
 
@@ -938,8 +932,7 @@ class IdiogramPlot {
             "font_size": number,
             "gene_label_height": number,
             "gene_lines_height": number,
-            "idiogram_height": number,
-            "chromosome_label_height": number
+            "idiogram_height": number
         },
         seqid: string,
         length: number,
@@ -1002,12 +995,12 @@ class IdiogramPlot {
         this.svg
             .append('text')
             .attr('x', this.dimensions["width"] / 2)
-            .attr('y', this.y_section.y_seqid_label + this.dimensions["font_size"])
-            .attr('text-anchor', 'middle') // Center the text
-            .style('fill', '#000000') // Adjust text color
+            .attr('y', this.y_section.y_heatmap + this.dimensions["idiogram_height"] / 2 + this.dimensions["font_size"] / 3)
+            .attr('text-anchor', 'middle')
+            .style('fill', '#ffffff')
             .style('font-size', this.dimensions["font_size"] + "px")
             .text(this.seqid);
-    }
+            }
 
     private plotLables(): void {
         const label_width_percent = (this.dimensions["font_size"] / this.dimensions["width"]) * 100;
