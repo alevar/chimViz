@@ -166,13 +166,25 @@ const App: React.FC = () => {
           if (end > genome_end) {
             genome_end = end;
           }
+
+          if (lcs[2].toLocaleLowerCase() === "transcript") {
+            const tid = get_attribute(lcs[8],"transcript_id");
+
+            if (!transcripts[tid]) {
+              transcripts[tid] = {"exons":[],
+                                  "cds":[],
+                                  "gene_name":""};
+            }
+            transcripts[tid]["gene_name"] = get_attribute(lcs[8],"gene_name");
+          }
           
           if (lcs[2].toLocaleLowerCase() === "exon") {
             const tid = get_attribute(lcs[8],"transcript_id");
 
             if (!transcripts[tid]) {
               transcripts[tid] = {"exons":[],
-                                  "cds":[]};
+                                  "cds":[],
+                                  "gene_name":""};
             }
             transcripts[tid]["exons"].push([start, end]);
           }
@@ -181,7 +193,8 @@ const App: React.FC = () => {
 
             if (!transcripts[tid]) {
               transcripts[tid] = {"exons":[],
-                                  "cds":[]};
+                                  "cds":[],
+                                  "gene_name":""};
             }
             transcripts[tid]["cds"].push([start, end]);
           }
@@ -206,22 +219,28 @@ const App: React.FC = () => {
             }
           }
         }
+        
         // sort donors and acceptors into lists
         const gtf_donor_list = Array.from(gtf_donors);
         gtf_donor_list.sort((a,b) => a-b);
         const gtf_acceptor_list = Array.from(gtf_acceptors);
         gtf_acceptor_list.sort((a,b) => a-b);
-        // add donors and acceptors to the genome components
+        
+        // add donors and acceptors to a combined list
+        const gtf_das = [];
         let d_i = 0;
         for (const donor of gtf_donor_list) {
-          genome_components.push({"type": "donor", "position": donor, "name": "d"+d_i});
+          genome_components.push({"type": "da", "position": donor, "name": "d"+d_i});
           d_i++;
         }
         let a_i = 0;
         for (const acceptor of gtf_acceptor_list) {
-          genome_components.push({"type": "acceptor", "position": acceptor, "name": "a"+a_i});
+          genome_components.push({"type": "da", "position": acceptor, "name": "a"+a_i});
           a_i++;
         }
+
+        // sort the combined list
+        genome_components.sort((a,b) => a.position-b.position);
 
         // Now dataMap contains arrays for each unique value in the 1st column
         const gtf_data = {"transcripts": transcripts,

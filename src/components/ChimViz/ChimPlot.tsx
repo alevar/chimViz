@@ -104,8 +104,7 @@ export class ChimPlot {
                 "font_size": number,
                 "width": number,
                 "height": number,
-                "genome_height": number,
-                "transcript_height": number
+                "genome_height": number
             }
         }
     };
@@ -170,6 +169,8 @@ export class ChimPlot {
                 }
             }
         };
+
+        this.color_integrations();
     }
 
     public plot(): void {
@@ -181,11 +182,26 @@ export class ChimPlot {
         this.svg.attr('width', this.width).attr('height', this.height);
     }
 
+    private color_integrations(): void {
+        // add color to the integration sites based on their location on the x-axis.
+        // assign from gradient scale.
+        // points which occur closer to each other on the genome should have similar colors
+
+        // get the maximum length of the genome
+        const path_genome_length = this.gtf_data["genome_end"];
+        // get color scale
+        const color = d3.scaleSequential(d3.interpolateTurbo)
+            .domain([0, path_genome_length]);
+        // iterate over the integrations and assign color
+        this.integrations.forEach(integration => {
+            integration.push(color(integration[3]));
+        });
+    }
+
     private setupSections(): void {
         const parameters = {
             "idiogram_factor": 0.025,
             "genome_factor": 0.15,
-            "transcript_factor": 0.02,
             "connections_factor": 0.3
         }
 
@@ -228,11 +244,9 @@ export class ChimPlot {
 
         this.sections["pathogenPlot"]["dimensions"]["font_size"] = this.fontSize;
         this.sections["pathogenPlot"]["dimensions"]["genome_height"] = this.width * parameters["genome_factor"];
-        this.sections["pathogenPlot"]["dimensions"]["transcript_height"] = this.width * parameters["transcript_factor"];
 
 
-        this.sections["pathogenPlot"]["dimensions"]["height"] = this.sections["pathogenPlot"]["dimensions"]["genome_height"] + // pathogen genome
-            this.sections["pathogenPlot"]["dimensions"]["transcript_height"] * numTranscripts;
+        this.sections["pathogenPlot"]["dimensions"]["height"] = this.sections["pathogenPlot"]["dimensions"]["genome_height"];
         this.sections["pathogenPlot"]["dimensions"]["width"] = this.width;
         this.sections["pathogenPlot"]["x"] = 0;
         this.sections["pathogenPlot"]["y"] = this.sections["hostPlot"]["dimensions"]["height"] + this.sections["connectionsPlot"]["dimensions"]["height"];
@@ -345,7 +359,6 @@ class ConnectionsPlot {
         let used_integrations: any[] = [];
 
         this.integrations.forEach(integration => {
-            console.log(integration)
             // get respective data from host_seqids
             const cur_host_seqid = this.host_seqids[integration[0]];
             // skip if undefined
@@ -376,7 +389,7 @@ class ConnectionsPlot {
                 .attr('d', lineGenerator)
                 .attr('fill', 'none')
                 .style('opacity', integration[4] / 1000)
-                .style('stroke', 'grey') // Adjust line color for gene labels
+                .style('stroke', integration[5]) // Adjust line color for gene labels
                 .style('stroke-width', 2);
 
             this.connections.push(connection);
@@ -402,6 +415,11 @@ class PathogenPlot {
     private transcript_plots: Record<string, TranscriptPlot> = {};
     private genome_length: number = 0;
 
+    private da_plot_height;
+    private integrations_height;
+    private da_plot_y;
+    private orf_plot_height;
+
 
     constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>,
         dimensions: {
@@ -416,6 +434,11 @@ class PathogenPlot {
         this.dimensions = dimensions;
         this.gtf_data = gtf_data;
         this.genome_length = 0;
+
+        this.orf_plot_height = this.dimensions["genome_height"] * 0.45;
+        this.da_plot_y = this.dimensions["genome_height"] * 0.55;
+        this.integrations_height = this.dimensions["genome_height"] * 0.55;
+        this.da_plot_height = this.dimensions["genome_height"] * 0.55;
     }
 
     public get_length(): number {
@@ -424,30 +447,6 @@ class PathogenPlot {
 
     public plot(): void {
         this.makeGenomePlot();
-
-        // loop over transcripts and plot them
-        let y_pos = this.dimensions["genome_height"];
-
-        Object.entries(this.gtf_data["transcripts"]).forEach(([tid, transcript]) => {
-            const transcriptSvg = this.svg.append('svg')
-                .attr('x', 0)
-                .attr('y', y_pos)
-                .attr('width', this.dimensions["width"])
-                .attr('height', this.dimensions["transcript_height"]);
-
-            const sub_dimensions = {
-                "font_size": this.dimensions["font_size"],
-                "width": this.dimensions["width"],
-                "height": this.dimensions["transcript_height"]
-            }
-            this.transcript_plots[tid] = new TranscriptPlot(transcriptSvg,
-                sub_dimensions,
-                this.genome_length,
-                tid,
-                transcript);
-            this.transcript_plots[tid].plot();
-            y_pos += this.dimensions["transcript_height"];
-        });
     }
 
     public plot_integrations(used_integrations: any[]): void {
@@ -462,8 +461,8 @@ class PathogenPlot {
                 .attr('x1', path_x)
                 .attr('y1', 0)
                 .attr('x2', path_x)
-                .attr('y2', this.dimensions["height"])
-                .style('stroke', 'grey')
+                .attr('y2', this.integrations_height)
+                .style('stroke', integration[5])
                 .style('stroke-width', 1)
                 .style('stroke-dasharray', '5,5');
         });
@@ -472,66 +471,53 @@ class PathogenPlot {
     private makeGenomePlot(): void {
         this.genome_length = this.gtf_data["genome_end"]
 
-        const da_plot_height = this.dimensions["genome_height"] * 0.55;
-        const orf_plot_y = this.dimensions["genome_height"] * 0.65;
-        const orf_plot_height = this.dimensions["genome_height"] * 0.35;
-
         // plot genome with LTRs and donor and acceptors
         this.genome_plot = this.svg
             .append('rect')
             .attr('x', 0)
-            .attr('y', (da_plot_height/2)-(da_plot_height/8))
+            .attr('y', this.da_plot_y)
             .attr('width', this.dimensions["width"])
-            .attr('height', da_plot_height/4)
-            .attr('rx', da_plot_height / 16)
-            .attr('ry', da_plot_height / 16)
+            .attr('height', this.da_plot_height/4)
+            .attr('rx', this.da_plot_height / 16)
+            .attr('ry', this.da_plot_height / 16)
             .style('fill', '#dddddd');
 
         // process donor labels
         const char_width = this.dimensions["font_size"] / 2;
-        const raw_donor_positions: Interval[] = [];
-        const spread_donor_positions: Interval[] = [];
-        const raw_acceptor_positions: Interval[] = [];
-        const spread_acceptor_positions: Interval[] = [];
+        const raw_da_positions: Interval[] = [];
+        const spread_da_positions: Interval[] = [];
         this.gtf_data["genome_components"].forEach(component => {
-            if (component["type"] !== "donor" && component["type"] !== "acceptor") {
+            if (component["type"] !== "da") {
                 return;
             }
             const percent_position = (component["position"] / this.genome_length) * this.dimensions["width"];
             const label_width = component["name"].length * char_width;
             const interval_start = percent_position - label_width / 2;
             const interval_end = percent_position + label_width / 2;
-            if (component["type"] === "donor"){
-                raw_donor_positions.push([interval_start, interval_end]);
-                spread_donor_positions.push([interval_start, interval_end]);
-            }
-            else{
-                raw_acceptor_positions.push([interval_start, interval_end]);
-                spread_acceptor_positions.push([interval_start, interval_end]);
-            }
+            raw_da_positions.push([interval_start, interval_end]);
+            spread_da_positions.push([interval_start, interval_end]);
+            
         });
 
         const separator = 20;
-        adjustIntervals(spread_donor_positions, separator);
-        adjustIntervals(spread_acceptor_positions, separator);
+        adjustIntervals(spread_da_positions, separator);
 
         // iterate over genome components and plot them accordingly
-        let donor_i = 0;
-        let acceptor_i = 0;
+        let da_i = 0;
         for (const component of this.gtf_data["genome_components"]) {
             if ( component["type"] === "ltr" ){
                 this.svg.append('rect')
                     .attr('x', (component["position"][0] / this.genome_length) * this.dimensions["width"])
-                    .attr('y', (da_plot_height/2)-(da_plot_height/8))
+                    .attr('y', this.da_plot_height)
                     .attr('width', ((component["position"][1] - component["position"][0]) / this.genome_length) * this.dimensions["width"])
-                    .attr('height', da_plot_height/4)
-                    .attr('rx', da_plot_height / 16)
-                    .attr('ry', da_plot_height / 16)
+                    .attr('height', this.da_plot_height/4)
+                    .attr('rx', this.da_plot_height / 16)
+                    .attr('ry', this.da_plot_height / 16)
                     .style('fill', '#3652AD');
                 // add text label to the middle of the rectangle
                 this.svg.append('text')
                     .attr('x', (component["position"][0] / this.genome_length) * this.dimensions["width"] + (((component["position"][1] - component["position"][0]) / this.genome_length) * this.dimensions["width"])/2)
-                    .attr('y', (da_plot_height/2)+(da_plot_height/8))
+                    .attr('y', (this.da_plot_height)+(this.da_plot_height/5))
                     .attr('text-anchor', 'middle')
                     .style('fill', 'white')
                     .style('font-size', this.dimensions["font_size"])
@@ -541,12 +527,12 @@ class PathogenPlot {
             let raw_da_x = 0;
             let da_color = "#red";
             let ys = [0,0,0,0];
-            if ( component["type"] === "donor" ){
-                const donor_position = spread_donor_positions[donor_i];
-                da_x = computeMidpoint(donor_position[0], donor_position[1]);
-                raw_da_x = computeMidpoint(raw_donor_positions[donor_i][0], raw_donor_positions[donor_i][1]);
-                const da_y = this.dimensions.font_size;
-                da_color = "#ff0000";
+            if ( component["type"] === "da"){
+                const da_position = spread_da_positions[da_i];
+                da_x = computeMidpoint(da_position[0], da_position[1]);
+                raw_da_x = computeMidpoint(raw_da_positions[da_i][0], raw_da_positions[da_i][1]);
+                const da_y = this.dimensions["genome_height"];
+                da_color = component["name"][0] === "a" ? "#ff0000" : "#000000";
                 this.svg.append('text')
                     .attr('x', da_x)
                     .attr('y', da_y)
@@ -554,34 +540,13 @@ class PathogenPlot {
                     .style('fill', 'black')
                     .style('font-size', this.dimensions["font_size"])
                     .text(component["name"]);
-                donor_i += 1;
+                da_i += 1;
 
-                const line_segment_xshift = ((da_y - da_plot_height/2) / 3);
-                ys = [da_y,
+                const line_segment_xshift = ((da_y - this.da_plot_height) / 3);
+                ys = [da_y - this.dimensions["font_size"],
                       da_y - line_segment_xshift,
                       da_y - (line_segment_xshift*2),
                       da_y - (line_segment_xshift*3)];
-            }
-            if ( component["type"] === "acceptor" ){
-                const acceptor_position = spread_acceptor_positions[acceptor_i];
-                da_x = computeMidpoint(acceptor_position[0], acceptor_position[1]);
-                raw_da_x = computeMidpoint(raw_acceptor_positions[acceptor_i][0], raw_acceptor_positions[acceptor_i][1]);
-                const da_y = da_plot_height;
-                da_color = "#000000";
-                this.svg.append('text')
-                    .attr('x', da_x)
-                    .attr('y', da_y)
-                    .attr('text-anchor', 'middle')
-                    .style('fill', 'black')
-                    .style('font-size', this.dimensions["font_size"])
-                    .text(component["name"]);
-                acceptor_i += 1;
-
-                const line_segment_xshift = ((da_y - da_plot_height/2) / 3);
-                ys = [da_y - this.dimensions["font_size"], 
-                      da_y - line_segment_xshift, 
-                      da_y - (line_segment_xshift * 2),
-                      da_plot_height/2];
             }
 
             // Draw a line connecting the gene label to the rectangle
@@ -626,7 +591,7 @@ class PathogenPlot {
             const cds_string = transcript["cds"].toString();
             if (!(unique_orfs.has(cds_string))) {
                 unique_orfs.add(cds_string);
-                orfs.push({"orf":transcript["cds"],"y":0});
+                orfs.push({"orf":transcript["cds"],"gene_name":transcript["gene_name"],"y":0});
             }
         }
 
@@ -657,8 +622,8 @@ class PathogenPlot {
             }
         }
 
-        const orf_height = (orf_plot_height / rows.length)*0.8;
-        const offset = orf_plot_height / rows.length;
+        const orf_height = (this.orf_plot_height / rows.length)*0.8;
+        const offset = this.orf_plot_height / rows.length;
 
         // plot ORFs as rectangles
         let o_i = 0;
@@ -669,7 +634,7 @@ class PathogenPlot {
                 const cds_end = (cds[1] / this.genome_length) * this.dimensions["width"];
                 const orfSvg = this.svg.append('g'); // Create a group element
 
-                const orf_y = orf_plot_y + orf["y"] * offset;
+                const orf_y = orf["y"] * offset;
 
                 // Draw the rectangle part
                 let cur_seg = orfSvg.append('rect')
@@ -704,6 +669,16 @@ class PathogenPlot {
                 
                 c_i += 1;
             }
+            // put the gene label in the center of the orf
+            const orf_midpoint = (orf["orf"][0][0] + orf["orf"].at(-1)[1]) / 2;
+            const orf_label_x = (orf_midpoint / this.genome_length) * this.dimensions["width"];
+            this.svg.append('text')
+                    .attr('x', orf_label_x)
+                    .attr('y', orf["y"] * offset + orf_height / 2) // Adjust y position to center of rectangle
+                    .attr('text-anchor', 'middle')
+                    .style('fill', 'black')
+                    .style('font-size', this.dimensions["font_size"])
+                    .text(orf["gene_name"]);
             o_i += 1;
         }
     }
