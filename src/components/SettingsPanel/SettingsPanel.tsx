@@ -6,9 +6,10 @@ import "./SettingsPanel.css";
 interface SettingsPanelProps {
     onDensityUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onFaiUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
-    onGenesUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onPathogenGTFUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onIntegrationsUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    geneCount: number;
+    onGeneCountChange: (value: number) => void;
     fontSize: number;
     onFontSizeChange: (value: number) => void;
     width: number;
@@ -20,9 +21,10 @@ interface SettingsPanelProps {
 const SettingsPanel: React.FC<SettingsPanelProps> = ({
     onDensityUpload,
     onFaiUpload,
-    onGenesUpload,
     onPathogenGTFUpload,
     onIntegrationsUpload,
+    geneCount,
+    onGeneCountChange,
     fontSize,
     onFontSizeChange,
     width,
@@ -48,11 +50,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                             <Form.Control type="file" onChange={onFaiUpload} />
                         </Form.Group>
 
-                        <Form.Group controlId="genesUpload">
-                            <Form.Label>Genes</Form.Label>
-                            <Form.Control type="file" onChange={onGenesUpload} />
-                        </Form.Group>
-
                         <Form.Group controlId="PathogenGtfUpload">
                             <Form.Label>Pathogen GTF</Form.Label>
                             <Form.Control type="file" onChange={onPathogenGTFUpload} />
@@ -61,6 +58,16 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         <Form.Group controlId="IntegrationsUpload">
                             <Form.Label>Integrations</Form.Label>
                             <Form.Control type="file" onChange={onIntegrationsUpload} />
+                        </Form.Group>
+
+                        {/* Gene Name Minimum Count Section */}
+                        <Form.Group controlId="geneCount">
+                            <Form.Label>Gene Count</Form.Label>
+                            <Form.Control
+                                type="number"
+                                value={geneCount}
+                                onChange={(e) => onGeneCountChange(Number(e.target.value))}
+                            />
                         </Form.Group>
 
                         {/* Font Size Section */}

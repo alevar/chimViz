@@ -27,6 +27,7 @@ const App: React.FC = () => {
   const [genes, setGenes] = useState<any[]>([]);
   const [pathogenGTF, setPathogenGTF] = useState<any>({"transcripts": [],"genome_components": []});
   const [integrations, setIntegrations] = useState<any[]>([]);
+  const [geneCount, setGeneCount] = useState<number>(100);
   const [fontSize, setFontSize] = useState<number>(12);
   const [width, setWidth] = useState<number>(1200);
   const [height, setHeight] = useState<number>(500);
@@ -98,41 +99,6 @@ const App: React.FC = () => {
 
         // Now dataMap contains arrays for each unique value in the 1st column
         setFai(faiMap);
-      };
-
-      reader.readAsText(file);
-    }
-  };
-
-  const handleGenesUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-
-    if (file) {
-      const reader = new FileReader();
-
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        const rows = result.split('\n');
-
-        // Use an object to store arrays for each unique value in the 1st column
-        const genes = {};
-
-        rows.forEach((row) => {
-          const columns = row.split('\t');
-          const seqid = columns[0];
-          const position = +columns[1];
-          const gene_name = columns[2];
-
-          // Check if the unique value in the 1st column already exists in the map
-          if (!genes[seqid]) {
-            // If it exists, push the value to the corresponding array
-            genes[seqid] = [];
-          }
-          genes[seqid].push([gene_name, position]);
-        });
-
-        // Now dataMap contains arrays for each unique value in the 1st column
-        setGenes(genes);
       };
 
       reader.readAsText(file);
@@ -230,12 +196,12 @@ const App: React.FC = () => {
         const gtf_das = [];
         let d_i = 0;
         for (const donor of gtf_donor_list) {
-          genome_components.push({"type": "da", "position": donor, "name": "d"+d_i});
+          genome_components.push({"type": "da", "position": donor, "name": "SD"+d_i});
           d_i++;
         }
         let a_i = 0;
         for (const acceptor of gtf_acceptor_list) {
-          genome_components.push({"type": "da", "position": acceptor, "name": "a"+a_i});
+          genome_components.push({"type": "da", "position": acceptor, "name": "SA"+a_i});
           a_i++;
         }
 
@@ -253,13 +219,64 @@ const App: React.FC = () => {
     }
   };
 
+  function GeneDedup(input: any, tolerance: number): any {
+    const deduplicated: any = {};
+  
+    // Helper function to check if positions are within N of each other
+    const arePositionsWithinTolerance = (
+      pos1: [string, number],
+      pos2: [string, number]
+    ): boolean => Math.abs(pos1[1] - pos2[1]) <= tolerance;
+  
+    // Iterate through the input object
+    for (const key in input) {
+      if (input.hasOwnProperty(key)) {
+        const currentItem = input[key];
+
+        if (!(currentItem.position[0] in deduplicated)) {
+          deduplicated[currentItem.position[0]] = [];
+        }
+        deduplicated[currentItem.position[0]].push(currentItem);
+  
+        // // Deduplicate only if the name is not "-"
+        // if (currentItem.name !== "-") {
+        //   const existingItems = deduplicated[currentItem.position[0]] || [];
+  
+        //   // Deduplicate based on name
+        //   const duplicateIndex = existingItems.findIndex(
+        //     (item) => item.name === currentItem.name && arePositionsWithinTolerance(item.position, currentItem.position)
+        //   );
+  
+        //   if (duplicateIndex === -1) {
+        //     existingItems.push(currentItem);
+        //     deduplicated[currentItem.position[0]] = existingItems;
+        //   }
+        // } else {
+        //   // Deduplicate if name is "-" and positions are within tolerance
+        //   const matchingItems = deduplicated[currentItem.position[0]] || [];
+        //   const duplicateIndex = matchingItems.findIndex(
+        //     (item) => item.name === "-" && arePositionsWithinTolerance(item.position, currentItem.position)
+        //   );
+  
+        //   if (duplicateIndex === -1) {
+        //     matchingItems.push(currentItem);
+        //     deduplicated[currentItem.position[0]] = matchingItems;
+        //   }
+        // }
+      }
+    }
+  
+    return deduplicated;
+  }
+
   const handleIntegrationsUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
     if (file) {
       const reader = new FileReader();
 
-      const interactions: any[] = [];
+      const integrations: any[] = [];
+      const integration_genes: any = {};
 
       reader.onload = (e) => {
         const result = e.target?.result as string;
@@ -273,10 +290,29 @@ const App: React.FC = () => {
           const pos1 = +columns[2];
           const pos2 = +columns[3];
           const count = +columns[4];
+          const gene1 = columns[5];
+          const gene2 = columns[6];
 
-          interactions.push([seqid1, seqid2, pos1, pos2, count])
+          integrations.push([seqid1, seqid2, pos1, pos2, count])
+
+          // process genes
+          // if gene is not "-" - add to the list and pick the 
+          if (!(seqid1 + ":" + pos1 in integration_genes)) {
+            integration_genes[seqid1 + ":" + pos1] = {"name":gene2, "position": [seqid1, pos1], "count": count};
+          }
+          integration_genes[seqid1 + ":" + pos1]["count"] += count;
         });
-        setIntegrations(interactions);
+        setIntegrations(integrations);
+
+        // pick coordinate for each gene
+        const deduplicated = GeneDedup(integration_genes, 100000);
+        const sort_genes = (a: [number, number], b: [number, number]) => a["position"][1] - b["position"][1];
+        // Sorting each array in the object
+        Object.keys(deduplicated).forEach(seqid => {
+          deduplicated[seqid].sort(sort_genes);
+        });
+
+        setGenes(deduplicated);
       };
       reader.readAsText(file);
     } 
@@ -288,9 +324,10 @@ const App: React.FC = () => {
         <SettingsPanel
           onDensityUpload={handleDensityUpload}
           onFaiUpload={handleFaiUpload}
-          onGenesUpload={handleGenesUpload}
           onPathogenGTFUpload={handlePathogenGTFUpload}
           onIntegrationsUpload={handleIntegrationsUpload}
+          geneCount={geneCount}
+          onGeneCountChange={setGeneCount}
           fontSize={fontSize}
           onFontSizeChange={setFontSize}
           width={width}
@@ -300,7 +337,7 @@ const App: React.FC = () => {
         />
       </div>
       <div className="visualization-container">
-        <ChimViz densities={density} fai={fai} genes={genes} gtf_data={pathogenGTF} integrations={integrations} width={width} height={height} fontSize={fontSize} />
+        <ChimViz densities={density} fai={fai} genes={genes} gtf_data={pathogenGTF} integrations={integrations} width={width} height={height} fontSize={fontSize} geneCount={geneCount} />
       </div>
     </div>
   );

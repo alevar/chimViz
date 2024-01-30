@@ -12,9 +12,10 @@ interface ChimVizProps {
     width: number;
     height: number;
     fontSize: number;
+    geneCount: number;
 }
 
-const ChimViz: React.FC<ChimVizProps> = ({ densities, fai, genes, gtf_data, integrations, width, height, fontSize }) => {
+const ChimViz: React.FC<ChimVizProps> = ({ densities, fai, genes, gtf_data, integrations, width, height, fontSize, geneCount }) => {
     const svgRef = useRef<SVGSVGElement | null>(null);
 
     const handleDownload = () => {
@@ -39,10 +40,10 @@ const ChimViz: React.FC<ChimVizProps> = ({ densities, fai, genes, gtf_data, inte
 
         const svg = d3.select(svgRef.current);
         svg.selectAll("*").remove();
-        const chim = new ChimPlot(svg, { densities, fai, genes, gtf_data, integrations, width, height, fontSize });
+        const chim = new ChimPlot(svg, { densities, fai, genes, gtf_data, integrations, width, height, fontSize, geneCount });
         chim.plot();
         
-    }, [densities, fai, genes, gtf_data, integrations, width, height, fontSize]);
+    }, [densities, fai, genes, gtf_data, integrations, width, height, fontSize, geneCount]);
 
     return (
         <div>

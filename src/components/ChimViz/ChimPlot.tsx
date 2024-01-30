@@ -60,6 +60,7 @@ interface ChimPlotData {
     densities: Record<string, number[]>;
     fai: Record<string, number>;
     genes: Record<string, [string, number][]>;
+    geneCount: number;
     gtf_data: any;
     integrations: any[];
     width: number;
@@ -113,6 +114,7 @@ export class ChimPlot {
     private densities: Record<string, number[]> = {};
     private fai: Record<string, number> = {};
     private genes: Record<string, [string, number][]> = {};
+    private geneCount: number = 0; // gene count threshold. Only labels above threshold will be displayed as names - oterwise simple markers
     private gtf_data: any = {"transcripts":[],"genome_components":[]};
     private integrations: any[] = [];
 
@@ -126,6 +128,7 @@ export class ChimPlot {
         this.densities = data.densities;
         this.fai = data.fai;
         this.genes = data.genes;
+        this.geneCount = data.geneCount;
         this.gtf_data = data.gtf_data;
         this.integrations = data.integrations;
 
@@ -162,8 +165,7 @@ export class ChimPlot {
                     "font_size": 0,
                     "width": 0,
                     "height": 0,
-                    "genome_height": 0,
-                    "transcript_height": 0
+                    "genome_height": 0
                 }
             }
         };
@@ -206,8 +208,6 @@ export class ChimPlot {
         // gather information about the data
         // 1. get maximum length of gene names
         const maxGeneNameLength = Object.keys(this.genes).reduce((max, key) => Math.max(max, key.length), 0);
-        // 2. get number of transcripts
-        const numTranscripts = Object.keys(this.gtf_data["transcripts"]).length;
 
         // Since width is invariant - we should deduce all heights and proportions relative to the width
 
@@ -229,10 +229,10 @@ export class ChimPlot {
 
 
 
-        this.sections["connectionsPlot"]["dimensions"]["height"] = this.width * parameters["connections_factor"];
+        this.sections["connectionsPlot"]["dimensions"]["height"] = this.width * parameters["connections_factor"] + this.sections["hostPlot"]["dimensions"]["idiogram_height"]/2;
         this.sections["connectionsPlot"]["dimensions"]["width"] = this.width;
         this.sections["connectionsPlot"]["x"] = 0;
-        this.sections["connectionsPlot"]["y"] = this.sections["hostPlot"]["dimensions"]["height"];
+        this.sections["connectionsPlot"]["y"] = this.sections["hostPlot"]["dimensions"]["height"] - this.sections["hostPlot"]["dimensions"]["idiogram_height"]/2;
 
 
 
@@ -240,16 +240,21 @@ export class ChimPlot {
 
         this.sections["pathogenPlot"]["dimensions"]["font_size"] = this.fontSize;
         this.sections["pathogenPlot"]["dimensions"]["genome_height"] = this.width * parameters["genome_factor"];
-
-
         this.sections["pathogenPlot"]["dimensions"]["height"] = this.sections["pathogenPlot"]["dimensions"]["genome_height"];
         this.sections["pathogenPlot"]["dimensions"]["width"] = this.width;
         this.sections["pathogenPlot"]["x"] = 0;
-        this.sections["pathogenPlot"]["y"] = this.sections["hostPlot"]["dimensions"]["height"] + this.sections["connectionsPlot"]["dimensions"]["height"];
+        this.sections["pathogenPlot"]["y"] = this.sections["connectionsPlot"]["y"] + this.sections["connectionsPlot"]["dimensions"]["height"];
 
         // update global dimensions accordingly
         this.height = this.sections["hostPlot"]["dimensions"]["height"] + this.sections["connectionsPlot"]["dimensions"]["height"] + this.sections["pathogenPlot"]["dimensions"]["height"];
         this.updateSvgSize()
+
+
+        const connectionsPlotSvg = this.svg.append('svg')
+            .attr('x', this.sections["connectionsPlot"]["x"])
+            .attr('y', this.sections["connectionsPlot"]["y"])
+            .attr('width', this.sections["connectionsPlot"]["dimensions"]["width"])
+            .attr('height', this.sections["connectionsPlot"]["dimensions"]["height"]);
 
         // Create individual SVG elements for each plot
         const hostPlotSvg = this.svg.append('svg')
@@ -257,12 +262,6 @@ export class ChimPlot {
             .attr('y', this.sections["hostPlot"]["y"])
             .attr('width', this.sections["hostPlot"]["dimensions"]["width"])
             .attr('height', this.sections["hostPlot"]["dimensions"]["height"]);
-
-        const connectionsPlotSvg = this.svg.append('svg')
-            .attr('x', this.sections["connectionsPlot"]["x"])
-            .attr('y', this.sections["connectionsPlot"]["y"])
-            .attr('width', this.sections["connectionsPlot"]["dimensions"]["width"])
-            .attr('height', this.sections["connectionsPlot"]["dimensions"]["height"]);
 
         const pathogenPlotSvg = this.svg.append('svg')
             .attr('x', this.sections["pathogenPlot"]["x"])
@@ -275,7 +274,8 @@ export class ChimPlot {
             this.sections["hostPlot"]["dimensions"],
             this.densities,
             this.fai,
-            this.genes);
+            this.genes,
+            this.geneCount);
         this.sections["hostPlot"]["plot"].plot();
         const seqids = this.sections["hostPlot"]["plot"].get_seqids();
 
@@ -310,7 +310,7 @@ class ConnectionsPlot {
         "width": 0,
         "height": 0
     };
-    private integrations: any[] = [];
+    private integrations: any[] = [];10
     private host_seqids: Record<string, any> = {};
     private path_seqids: Record<string, any> = {};
 
@@ -334,19 +334,29 @@ class ConnectionsPlot {
         this.connections = [];
     }
 
-    private splitDistanceIntoThree(point1: { xpoint: number; ypoint: number; }, point2: { xpoint: number; ypoint: number; }): { xpoint: number; ypoint: number; }[] {
+    private splitDistance(point1: { xpoint: number; ypoint: number; }, point2: { xpoint: number; ypoint: number; }): { xpoint: number; ypoint: number; }[] {
         // Calculate the coordinates of the two intermediate points
         const intermediatePoint1 = {
+            xpoint: point1.xpoint,
+            ypoint: point1.ypoint + (point2.ypoint - point1.ypoint) / 5,
+        };
+
+        const intermediatePoint2 = {
             xpoint: point1.xpoint + (point2.xpoint - point1.xpoint) / 4,
             ypoint: point1.ypoint + (point2.ypoint - point1.ypoint) / 3,
         };
 
-        const intermediatePoint2 = {
+        const intermediatePoint3 = {
             xpoint: point1.xpoint + (3 * (point2.xpoint - point1.xpoint)) / 4,
             ypoint: point1.ypoint + (2 * (point2.ypoint - point1.ypoint)) / 3,
         };
 
-        return [point1, intermediatePoint1, intermediatePoint2, point2];
+        const intermediatePoint4 = {
+            xpoint: point2.xpoint,
+            ypoint: point2.ypoint - (point2.ypoint - point1.ypoint) / 6,
+        };
+
+        return [point1, intermediatePoint1, intermediatePoint2, intermediatePoint3, intermediatePoint4, point2];
     }
 
 
@@ -370,7 +380,7 @@ class ConnectionsPlot {
             // map coordinate
             const host_x = cur_host_seqid["x"] + (integration[2] / cur_host_seqid.length) * cur_host_seqid["width"];
             const path_x = this.path_seqids["x"] + (integration[3] / this.path_seqids.length) * this.path_seqids["width"];
-            const points = this.splitDistanceIntoThree({ xpoint: host_x, ypoint: 0 },
+            const points = this.splitDistance({ xpoint: host_x, ypoint: 0 },
                 { xpoint: path_x, ypoint: this.dimensions["height"] });
 
             // Draw a dotted vertical line on the pathogen genome to identify the chimeric junction across all transcripts
@@ -517,7 +527,7 @@ class PathogenPlot {
                     .attr('y', (this.da_plot_height)+(this.da_plot_height/5))
                     .attr('text-anchor', 'middle')
                     .style('fill', 'white')
-                    .style('font-size', this.dimensions["font_size"])
+                    .style('font-size', this.dimensions["font_size"]+"px")
                     .text(component["name"]);
             }
             let da_x = 0;
@@ -529,13 +539,13 @@ class PathogenPlot {
                 da_x = computeMidpoint(da_position[0], da_position[1]);
                 raw_da_x = computeMidpoint(raw_da_positions[da_i][0], raw_da_positions[da_i][1]);
                 const da_y = this.dimensions["genome_height"];
-                da_color = component["name"][0] === "a" ? "#ff0000" : "#000000";
+                da_color = component["name"][1] === "A" ? "#ff0000" : "#000000";
                 this.svg.append('text')
                     .attr('x', da_x)
                     .attr('y', da_y)
                     .attr('text-anchor', 'middle')
                     .style('fill', 'black')
-                    .style('font-size', this.dimensions["font_size"])
+                    .style('font-size', this.dimensions["font_size"]+"px")
                     .text(component["name"]);
                 da_i += 1;
 
@@ -674,7 +684,7 @@ class PathogenPlot {
                     .attr('y', orf["y"] * offset + orf_height / 2) // Adjust y position to center of rectangle
                     .attr('text-anchor', 'middle')
                     .style('fill', 'black')
-                    .style('font-size', this.dimensions["font_size"])
+                    .style('font-size', this.dimensions["font_size"]+"px")
                     .text(orf["gene_name"]);
             o_i += 1;
         }
@@ -809,6 +819,7 @@ class HostPlot {
     private densities: Record<string, number[]> = {};
     private fai: Record<string, number> = {};
     private genes: Record<string, [string, number][]> = {};
+    private geneCount: number = 0; // gene count threshold. Only labels above threshold will be displayed as names - oterwise simple markers
 
     private dimensions = {
         "font_size": 0,
@@ -840,11 +851,13 @@ class HostPlot {
         },
         densities: Record<string, number[]>,
         fai: Record<string, number>,
-        genes: Record<string, [string, number][]>) {
+        genes: Record<string, [string, number][]>,
+        geneCount: number) {
         this.svg = svg;
         this.densities = densities;
         this.fai = fai;
         this.genes = genes;
+        this.geneCount = geneCount;
         this.dimensions = dimensions;
 
         this.seqids = {};
@@ -885,7 +898,8 @@ class HostPlot {
                     key,
                     this.fai[key],
                     values,
-                    this.genes[key]),
+                    this.genes[key],
+                    this.geneCount),
                 "x": x_pos,
                 "y": 0,
                 "width": idiogramWidth,
@@ -917,6 +931,7 @@ class IdiogramPlot {
 
     private densities: number[] = [];
     private genes: [string, number][] = [];
+    private geneCount: number = 0; // gene count threshold. Only labels above threshold will be displayed as names - oterwise simple markers
 
     private y_section: { // precomputed y-coordinates of the sections
         y_gene_labels: number,
@@ -932,12 +947,13 @@ class IdiogramPlot {
             "font_size": number,
             "gene_label_height": number,
             "gene_lines_height": number,
-            "idiogram_height": number
+            "idiogram_height": number,
         },
         seqid: string,
         length: number,
         densities: number[],
-        genes: [string, number][]) {
+        genes: [string, number][],
+        geneCount: number) {
         this.svg = svg;
         this.dimensions = dimensions;
 
@@ -946,6 +962,7 @@ class IdiogramPlot {
 
         this.densities = densities;
         this.genes = genes;
+        this.geneCount = geneCount;
 
         this.y_section = {
             y_gene_labels: 0,
@@ -957,7 +974,7 @@ class IdiogramPlot {
 
     public plot(): void {
         this.makeIdiogram();
-        this.plotLables();
+        this.plotLabels();
     }
 
     private makeIdiogram(): void {
@@ -1002,35 +1019,68 @@ class IdiogramPlot {
             .text(this.seqid);
             }
 
-    private plotLables(): void {
-        const label_width_percent = (this.dimensions["font_size"] / this.dimensions["width"]) * 100;
-        const label_width = label_width_percent * (this.dimensions["width"] / 100);
+    private plotLabels(): void {
+        const char_width = this.dimensions["font_size"];
 
+        const marker_intergencic_y = this.y_section.y_gene_labels + ((this.y_section.y_gene_labels + this.y_section.y_heatmap) * 0.95);
+        const marker_genic_y =  this.y_section.y_gene_labels + ((this.y_section.y_gene_labels + this.y_section.y_heatmap) *0.9 );
 
         // Check if there are gene labels for the current rectangle
         if (this.genes) {
-
             // extract raw label positions
-            const raw_label_positions: Interval[] = [];
             const spread_label_positions: Interval[] = [];
-            this.genes.forEach(([geneName, genePosition]) => {
-                const percent_position = (genePosition / this.length) * this.dimensions["width"];
-                const interval_start = percent_position - label_width / 2;
-                const interval_end = percent_position + label_width / 2;
-                raw_label_positions.push([interval_start, interval_end]);
+            this.genes.forEach(gene => {
+                if ((gene["name"] === "-") || (gene["count"] < this.geneCount)){
+                    return;
+                }
+                const percent_position = (gene["position"][1] / this.length) * this.dimensions["width"];
+                const interval_start = percent_position - char_width / 2;
+                const interval_end = percent_position + char_width / 2;
                 spread_label_positions.push([interval_start, interval_end]);
             });
 
-            const separator = 0.1;
+            const separator = 10;
             adjustIntervals(spread_label_positions, separator);
 
             let gene_index = 0;
-            this.genes.forEach(([geneName, genePosition]) => {
+            this.genes.forEach(gene => {
+                const gene_label_xpos = (gene["position"][1] / this.length) * this.dimensions["width"];
+                if (gene["name"] === "-"){
+                    // if above threshold - make red star, otherwise green circle
+                    if (gene["count"] < this.geneCount){
+                        // mark intergenic below threshold with a green circle
+                        this.svg.append('circle')
+                            .attr('cx', gene_label_xpos)
+                            .attr('cy', marker_intergencic_y)
+                            .attr('r', this.dimensions["font_size"] / 4)
+                            .attr('fill', 'red');
+                        return;
+                    }
+                    else{
+                        // mark intergenic with a blue square
+                        this.svg.append('rect')
+                            .attr('x', gene_label_xpos - this.dimensions["font_size"] / 2)
+                            .attr('y', marker_intergencic_y)
+                            .attr('width', this.dimensions["font_size"]/3)
+                            .attr('height', this.dimensions["font_size"]/3)
+                            .attr('fill', 'blue');
+                    }
+
+                    return;
+                }
+                if (gene["count"] < this.geneCount){
+                    // mark genic below threshold with a green circle
+                    this.svg.append('circle')
+                        .attr('cx', gene_label_xpos)
+                        .attr('cy', marker_genic_y)
+                        .attr('r', this.dimensions["font_size"] / 3)
+                        .attr('fill', 'green');
+                        return;
+                }
                 // Ensure that genePosition is a valid number
-                if (!isNaN(genePosition)) {
+                if (!isNaN(gene["position"][1])) {
                     // Calculate the x-position of the gene label relative to the current rectangle
                     const gene_label_adjusted_xpos = (spread_label_positions[gene_index][1] + spread_label_positions[gene_index][0]) / 2;
-                    const gene_label_xpos = (raw_label_positions[gene_index][1] + raw_label_positions[gene_index][0]) / 2;
 
                     // Add gene label text on the rectangle
                     this.svg
@@ -1041,7 +1091,7 @@ class IdiogramPlot {
                         .style('fill', '#ff0000') // Adjust text color for gene labels
                         .attr('transform', `rotate(90 ${gene_label_adjusted_xpos * (this.dimensions["width"] / 100)},${this.y_section.y_gene_labels + this.y_section.y_gene_lines})`) // Rotate text 90 degrees
                         .style('font-size', this.dimensions["font_size"] + "px") // Adjust font size
-                        .text(geneName);
+                        .text(gene["name"]);
 
                     // Draw a line connecting the gene label to the rectangle
                     const line_segment_xshift = ((this.y_section.y_heatmap - this.y_section.y_gene_lines) / 3)
@@ -1058,17 +1108,17 @@ class IdiogramPlot {
                         .append('line')
                         .attr('x1', gene_label_adjusted_xpos + '%')
                         .attr('y1', this.y_section.y_gene_lines + line_segment_xshift)
-                        .attr('x2', gene_label_xpos + '%')
+                        .attr('x2', gene_label_xpos)
                         .attr('y2', this.y_section.y_gene_lines + line_segment_xshift * 2) // Adjust y-position as needed for the line
                         .style('stroke', '#ff0000') // Adjust line color for gene labels
                         .style('stroke-width', 1);
 
                     this.svg
                         .append('line')
-                        .attr('x1', gene_label_xpos + '%')
+                        .attr('x1', gene_label_xpos)
                         .attr('y1', this.y_section.y_gene_lines + line_segment_xshift * 2)
-                        .attr('x2', gene_label_xpos + '%')
-                        .attr('y2', this.y_section.y_heatmap) // Adjust y-position as needed for the line
+                        .attr('x2', gene_label_xpos)
+                        .attr('y2', this.y_section.y_heatmap+this.dimensions.idiogram_height) // Adjust y-position as needed for the line
                         .style('stroke', '#ff0000') // Adjust line color for gene labels
                         .style('stroke-width', 1);
                 }
