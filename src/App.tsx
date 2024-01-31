@@ -27,7 +27,7 @@ const App: React.FC = () => {
   const [genes, setGenes] = useState<any[]>([]);
   const [pathogenGTF, setPathogenGTF] = useState<any>({"transcripts": [],"genome_components": []});
   const [integrations, setIntegrations] = useState<any[]>([]);
-  const [geneCount, setGeneCount] = useState<number>(100);
+  const [geneCount, setGeneCount] = useState<number>(300);
   const [fontSize, setFontSize] = useState<number>(12);
   const [width, setWidth] = useState<number>(1200);
   const [height, setHeight] = useState<number>(500);
@@ -233,36 +233,36 @@ const App: React.FC = () => {
       if (input.hasOwnProperty(key)) {
         const currentItem = input[key];
 
-        if (!(currentItem.position[0] in deduplicated)) {
-          deduplicated[currentItem.position[0]] = [];
-        }
-        deduplicated[currentItem.position[0]].push(currentItem);
-  
-        // // Deduplicate only if the name is not "-"
-        // if (currentItem.name !== "-") {
-        //   const existingItems = deduplicated[currentItem.position[0]] || [];
-  
-        //   // Deduplicate based on name
-        //   const duplicateIndex = existingItems.findIndex(
-        //     (item) => item.name === currentItem.name && arePositionsWithinTolerance(item.position, currentItem.position)
-        //   );
-  
-        //   if (duplicateIndex === -1) {
-        //     existingItems.push(currentItem);
-        //     deduplicated[currentItem.position[0]] = existingItems;
-        //   }
-        // } else {
-        //   // Deduplicate if name is "-" and positions are within tolerance
-        //   const matchingItems = deduplicated[currentItem.position[0]] || [];
-        //   const duplicateIndex = matchingItems.findIndex(
-        //     (item) => item.name === "-" && arePositionsWithinTolerance(item.position, currentItem.position)
-        //   );
-  
-        //   if (duplicateIndex === -1) {
-        //     matchingItems.push(currentItem);
-        //     deduplicated[currentItem.position[0]] = matchingItems;
-        //   }
+        // if (!(currentItem.position[0] in deduplicated)) {
+        //   deduplicated[currentItem.position[0]] = [];
         // }
+        // deduplicated[currentItem.position[0]].push(currentItem);
+  
+        // Deduplicate only if the name is not "-"
+        if (currentItem.name !== "-") {
+          const existingItems = deduplicated[currentItem.position[0]] || [];
+  
+          // Deduplicate based on name
+          const duplicateIndex = existingItems.findIndex(
+            (item) => item.name === currentItem.name && arePositionsWithinTolerance(item.position, currentItem.position)
+          );
+  
+          if (duplicateIndex === -1) {
+            existingItems.push(currentItem);
+            deduplicated[currentItem.position[0]] = existingItems;
+          }
+        } else {
+          // Deduplicate if name is "-" and positions are within tolerance
+          const matchingItems = deduplicated[currentItem.position[0]] || [];
+          const duplicateIndex = matchingItems.findIndex(
+            (item) => item.name === "-" && arePositionsWithinTolerance(item.position, currentItem.position)
+          );
+  
+          if (duplicateIndex === -1) {
+            matchingItems.push(currentItem);
+            deduplicated[currentItem.position[0]] = matchingItems;
+          }
+        }
       }
     }
   
