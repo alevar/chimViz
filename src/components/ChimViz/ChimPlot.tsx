@@ -1022,7 +1022,8 @@ class IdiogramPlot {
     private plotLabels(): void {
         const char_width = this.dimensions["font_size"];
 
-        const marker_intergencic_y = this.y_section.y_gene_labels + ((this.y_section.y_gene_labels + this.y_section.y_heatmap) * 0.95);
+        const marker_intergenic_y = this.y_section.y_gene_labels + ((this.y_section.y_gene_labels + this.y_section.y_heatmap) * 0.99);
+        const marker_intergenic_high_y = this.y_section.y_gene_labels + ((this.y_section.y_gene_labels + this.y_section.y_heatmap) * 0.95);
         const marker_genic_y =  this.y_section.y_gene_labels + ((this.y_section.y_gene_labels + this.y_section.y_heatmap) *0.9 );
 
         // Check if there are gene labels for the current rectangle
@@ -1047,34 +1048,29 @@ class IdiogramPlot {
                 const gene_label_xpos = (gene["position"][1] / this.length) * this.dimensions["width"];
                 if (gene["name"] === "-"){
                     // if above threshold - make red star, otherwise green circle
-                    if (gene["count"] < this.geneCount){
+                    if (gene["count"] > this.geneCount){
                         // mark intergenic below threshold with a green circle
-                        this.svg.append('circle')
-                            .attr('cx', gene_label_xpos)
-                            .attr('cy', marker_intergencic_y)
-                            .attr('r', this.dimensions["font_size"] / 4)
-                            .attr('fill', 'red');
-                        return;
+                        this.svg.append("path")
+                            .attr("d", d3.symbol(d3.symbolStar,this.dimensions["font_size"]*4))
+                            .attr("transform", `translate(${gene_label_xpos},${marker_intergenic_high_y})`)
+                            .attr("fill", "red");
                     }
                     else{
                         // mark intergenic with a blue square
-                        this.svg.append('rect')
-                            .attr('x', gene_label_xpos - this.dimensions["font_size"] / 2)
-                            .attr('y', marker_intergencic_y)
-                            .attr('width', this.dimensions["font_size"]/3)
-                            .attr('height', this.dimensions["font_size"]/3)
-                            .attr('fill', 'blue');
+                        this.svg.append("path")
+                            .attr("d", d3.symbol(d3.symbolDiamond,this.dimensions["font_size"]*2))
+                            .attr("transform", `translate(${gene_label_xpos},${marker_intergenic_y})`)
+                            .attr("fill", "black");
                     }
 
                     return;
                 }
                 if (gene["count"] < this.geneCount){
                     // mark genic below threshold with a green circle
-                    this.svg.append('circle')
-                        .attr('cx', gene_label_xpos)
-                        .attr('cy', marker_genic_y)
-                        .attr('r', this.dimensions["font_size"] / 3)
-                        .attr('fill', 'green');
+                    this.svg.append("path")
+                            .attr("d", d3.symbol(d3.symbolCross,this.dimensions["font_size"]*2))
+                            .attr("transform", `translate(${gene_label_xpos},${marker_genic_y})`)
+                            .attr("fill", "green");
                         return;
                 }
                 // Ensure that genePosition is a valid number
