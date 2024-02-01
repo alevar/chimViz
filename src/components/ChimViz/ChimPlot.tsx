@@ -200,7 +200,15 @@ export class ChimPlot {
     }
 
     private updateSvgSize(): void {
-        this.svg.attr('width', this.width).attr('height', this.height);
+        this.svg
+            .attr('width', this.width)
+            .attr('height', this.height);
+        this.svg.append('rect')
+            .attr('width', this.width)
+            .attr('height', this.height)
+            .attr('fill', 'white');
+
+            
     }
 
     private color_integrations(): void {
@@ -232,9 +240,6 @@ export class ChimPlot {
         const maxGeneNameLength = Object.keys(this.genes).reduce((max, key) => Math.max(max, key.length), 0);
 
         // Since width is invariant - we should deduce all heights and proportions relative to the width
-
-        // Remove all elements from the svg
-        this.svg.selectAll("*").remove();
 
         // Calculate heights for each section
         this.sections["hostPlot"]["dimensions"]["font_size"] = this.fontSize;
@@ -275,7 +280,7 @@ export class ChimPlot {
         this.sections["legend"]["dimensions"]["height"] = this.sections["connectionsPlot"]["dimensions"]["height"];
         this.sections["legend"]["dimensions"]["width"] = (this.width * parameters["legend_factor"]) * 0.9;
         this.sections["legend"]["dimensions"]["font_size"] = this.fontSize;
-        this.sections["legend"]["x"] = this.width * (1 - parameters["legend_factor"]);
+        this.sections["legend"]["x"] = this.width * (1 - parameters["legend_factor"]) + (this.width * parameters["legend_factor"]) * 0.075;
         this.sections["legend"]["y"] = this.sections["connectionsPlot"]["y"];
 
         const legendSvg = this.svg.append('svg')
@@ -1260,7 +1265,7 @@ class Legend {
             .attr('text-anchor', 'start')
             .style('fill', 'black')
             .style('font-size', legend_font_size + "px")
-            .text('Density');
+            .text('Gene Density');
 
         legend.append('text')
             .attr('x', legend_text_x)
