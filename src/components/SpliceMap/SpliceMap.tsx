@@ -1,21 +1,16 @@
 import React, { useRef, useEffect } from 'react';
 import * as d3 from 'd3';
 
-import { ChimPlot } from './ChimPlot';
+import { SpliceMapPlot } from './SpliceMapPlot';
 
-interface ChimVizProps {
-    densities: Record<string, number[]>;
-    fai: Record<string, number>;
-    genes: Record<string, [string, number][]>;
+interface SpliceMapProps {
     gtf_data: any;
-    integrations: [string, string, number, number, number][];
     width: number;
     height: number;
     fontSize: number;
-    geneCount: number;
 }
 
-const ChimViz: React.FC<ChimVizProps> = ({ densities, fai, genes, gtf_data, integrations, width, height, fontSize, geneCount }) => {
+const SpliceMap: React.FC<SpliceMapProps> = ({ gtf_data, width, height, fontSize }) => {
     const svgRef = useRef<SVGSVGElement | null>(null);
 
     const handleDownload = () => {
@@ -27,7 +22,7 @@ const ChimViz: React.FC<ChimVizProps> = ({ densities, fai, genes, gtf_data, inte
 
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'chim-viz.svg';
+            a.download = 'splice-map.svg';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -40,10 +35,10 @@ const ChimViz: React.FC<ChimVizProps> = ({ densities, fai, genes, gtf_data, inte
 
         const svg = d3.select(svgRef.current);
         svg.selectAll("*").remove();
-        const chim = new ChimPlot(svg, { densities, fai, genes, gtf_data, integrations, width, height, fontSize, geneCount });
-        chim.plot();
+        const smp = new SpliceMapPlot(svg, { gtf_data, width, height, fontSize });
+        smp.plot();
         
-    }, [densities, fai, genes, gtf_data, integrations, width, height, fontSize, geneCount]);
+    }, [gtf_data, width, height, fontSize]);
 
     return (
         <div>
@@ -53,4 +48,4 @@ const ChimViz: React.FC<ChimVizProps> = ({ densities, fai, genes, gtf_data, inte
     );
 };
 
-export default ChimViz;
+export default SpliceMap;

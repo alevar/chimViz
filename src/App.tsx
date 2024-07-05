@@ -1,6 +1,6 @@
 // src/App.tsx
 import React, { useState } from 'react';
-import ChimViz from './components/ChimViz/ChimViz';
+import SpliceMap from './components/SpliceMap/SpliceMap';
 import SettingsPanel from './components/SettingsPanel/SettingsPanel';
 import * as d3 from 'd3';
 
@@ -22,90 +22,12 @@ function get_attribute(attributes: string, key: string): string | null {
 }
 
 const App: React.FC = () => {
-  const [density, setDensity] = useState<any[]>([]);
-  const [fai, setFai] = useState<any[]>([]);
-  const [genes, setGenes] = useState<any[]>([]);
-  const [pathogenGTF, setPathogenGTF] = useState<any>({"transcripts": [],"genome_components": []});
-  const [integrations, setIntegrations] = useState<any[]>([]);
-  const [geneCount, setGeneCount] = useState<number>(300);
+  const [GTF, setGTF] = useState<any>({"transcripts": [],"genome_components": []});
   const [fontSize, setFontSize] = useState<number>(12);
   const [width, setWidth] = useState<number>(1200);
   const [height, setHeight] = useState<number>(500);
 
-  const handleDensityUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-
-    if (file) {
-      const reader = new FileReader();
-
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        const rows = result.split('\n');
-
-        // Use an object to store arrays for each unique value in the 1st column
-        const densityMap = {};
-
-        rows.forEach((row) => {
-          const columns = row.split('\t');
-          const seqid = columns[0];
-          const density = +columns[3];
-
-          // Check if the unique value in the 1st column already exists in the map
-          if (densityMap[seqid]) {
-            // If it exists, push the value to the corresponding array
-            densityMap[seqid].push(density);
-          } else {
-            // If it doesn't exist, create a new array with the value
-            densityMap[seqid] = [density];
-          }
-        });
-
-        // Now dataMap contains arrays for each unique value in the 1st column
-        setDensity(densityMap);
-      };
-
-      reader.readAsText(file);
-    }
-  };
-
-  const handleFaiUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    // parse fasta index and load chromosome lengths
-    const file = event.target.files?.[0];
-
-    if (file) {
-      const reader = new FileReader();
-
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        const rows = result.split('\n');
-
-        // Use an object to store arrays for each unique value in the 1st column
-        const faiMap = {};
-
-        rows.forEach((row) => {
-          const columns = row.split('\t');
-          const seqid = columns[0];
-          const length = +columns[1];
-
-          // Check if the unique value in the 1st column already exists in the map
-          if (faiMap[seqid]) {
-            // If it exists, push the value to the corresponding array
-            faiMap[seqid].push(length);
-          } else {
-            // If it doesn't exist, create a new array with the value
-            faiMap[seqid] = [length];
-          }
-        });
-
-        // Now dataMap contains arrays for each unique value in the 1st column
-        setFai(faiMap);
-      };
-
-      reader.readAsText(file);
-    }
-  };
-
-  const handlePathogenGTFUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleGTFUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
     if (file) {
@@ -212,7 +134,7 @@ const App: React.FC = () => {
         const gtf_data = {"transcripts": transcripts,
                     "genome_end": genome_end,
                     "genome_components": genome_components};
-        setPathogenGTF(gtf_data);
+        setGTF(gtf_data);
       };
 
       reader.readAsText(file);
@@ -269,65 +191,11 @@ const App: React.FC = () => {
     return deduplicated;
   }
 
-  const handleIntegrationsUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-
-    if (file) {
-      const reader = new FileReader();
-
-      const integrations: any[] = [];
-      const integration_genes: any = {};
-
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        const rows = result.split('\n');
-
-        // seqid1, seqid2, pos1, pos2, count
-        rows.forEach((row) => {
-          const columns = row.split('\t');
-          const seqid1 = columns[0];
-          const seqid2 = columns[1];
-          const pos1 = +columns[2];
-          const pos2 = +columns[3];
-          const count = +columns[4];
-          const gene1 = columns[5];
-          const gene2 = columns[6];
-
-          integrations.push([seqid1, seqid2, pos1, pos2, count])
-
-          // process genes
-          // if gene is not "-" - add to the list and pick the 
-          if (!(seqid1 + ":" + pos1 in integration_genes)) {
-            integration_genes[seqid1 + ":" + pos1] = {"name":gene2, "position": [seqid1, pos1], "count": count};
-          }
-          integration_genes[seqid1 + ":" + pos1]["count"] += count;
-        });
-        setIntegrations(integrations);
-
-        // pick coordinate for each gene
-        const deduplicated = GeneDedup(integration_genes, 100000);
-        const sort_genes = (a: [number, number], b: [number, number]) => a["position"][1] - b["position"][1];
-        // Sorting each array in the object
-        Object.keys(deduplicated).forEach(seqid => {
-          deduplicated[seqid].sort(sort_genes);
-        });
-
-        setGenes(deduplicated);
-      };
-      reader.readAsText(file);
-    } 
-  }
-
   return (
     <div className="App">
       <div className="settings-panel">
         <SettingsPanel
-          onDensityUpload={handleDensityUpload}
-          onFaiUpload={handleFaiUpload}
-          onPathogenGTFUpload={handlePathogenGTFUpload}
-          onIntegrationsUpload={handleIntegrationsUpload}
-          geneCount={geneCount}
-          onGeneCountChange={setGeneCount}
+          onGTFUpload={handleGTFUpload}
           fontSize={fontSize}
           onFontSizeChange={setFontSize}
           width={width}
@@ -337,7 +205,7 @@ const App: React.FC = () => {
         />
       </div>
       <div className="visualization-container">
-        <ChimViz densities={density} fai={fai} genes={genes} gtf_data={pathogenGTF} integrations={integrations} width={width} height={height} fontSize={fontSize} geneCount={geneCount} />
+        <SpliceMap gtf_data={GTF} width={width} height={height} fontSize={fontSize} />
       </div>
     </div>
   );

@@ -4,12 +4,7 @@ import { Card, Form } from 'react-bootstrap';
 import "./SettingsPanel.css";
 
 interface SettingsPanelProps {
-    onDensityUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
-    onFaiUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
-    onPathogenGTFUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
-    onIntegrationsUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
-    geneCount: number;
-    onGeneCountChange: (value: number) => void;
+    onGTFUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     fontSize: number;
     onFontSizeChange: (value: number) => void;
     width: number;
@@ -19,12 +14,7 @@ interface SettingsPanelProps {
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({
-    onDensityUpload,
-    onFaiUpload,
-    onPathogenGTFUpload,
-    onIntegrationsUpload,
-    geneCount,
-    onGeneCountChange,
+    onGTFUpload,
     fontSize,
     onFontSizeChange,
     width,
@@ -40,36 +30,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
                     {/* Density and Genes Upload Section */}
                     <Form>
-                        <Form.Group controlId="densityUpload">
-                            <Form.Label>Density</Form.Label>
-                            <Form.Control type="file" onChange={onDensityUpload} />
-                        </Form.Group>
-
-                        <Form.Group controlId="faiUpload">
-                            <Form.Label>Fasta Index</Form.Label>
-                            <Form.Control type="file" onChange={onFaiUpload} />
-                        </Form.Group>
-
                         <Form.Group controlId="PathogenGtfUpload">
                             <Form.Label>Pathogen GTF</Form.Label>
-                            <Form.Control type="file" onChange={onPathogenGTFUpload} />
+                            <Form.Control type="file" onChange={onGTFUpload} />
                         </Form.Group>
                         
-                        <Form.Group controlId="IntegrationsUpload">
-                            <Form.Label>Integrations</Form.Label>
-                            <Form.Control type="file" onChange={onIntegrationsUpload} />
-                        </Form.Group>
-
-                        {/* Gene Name Minimum Count Section */}
-                        <Form.Group controlId="geneCount">
-                            <Form.Label>Gene Count</Form.Label>
-                            <Form.Control
-                                type="number"
-                                value={geneCount}
-                                onChange={(e) => onGeneCountChange(Number(e.target.value))}
-                            />
-                        </Form.Group>
-
                         {/* Font Size Section */}
                         <Form.Group controlId="fontSize">
                             <Form.Label>Font Size</Form.Label>
