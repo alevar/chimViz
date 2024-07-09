@@ -1,352 +1,8 @@
-import { color } from 'chart.js/helpers';
-import * as d3 from 'd3';
+import * as d3 from "d3";
 
-function adjustIntervals(intervals: Interval[], separator: number): Interval[] {
-    // Base case: when there are no intervals or only one interval
-    if (intervals.length <= 1) {
-        return intervals;
-    }
+import * as utils from "./utils";
 
-    // Sort intervals by their start position
-    intervals.sort((a, b) => a[0] - b[0]);
-
-    // Recursive function to adjust intervals
-    function adjustRecursive(index: number): void {
-        if (index <= 0) {
-            // Base case: reached the beginning of the array
-            return;
-        }
-
-        const currentInterval = intervals[index];
-        const leftNeighbor = intervals[index - 1];
-
-        // There is an overlap with the left neighbor
-        const overlap = Math.max(0, (leftNeighbor[1] - currentInterval[0]) - separator);
-        let adjustAmount = overlap / 2;
-
-        // Adjust position of the left neighbor
-        if (leftNeighbor[0] - adjustAmount < 0) {
-            adjustAmount = leftNeighbor[0];
-        }
-        leftNeighbor[1] -= adjustAmount;
-        leftNeighbor[0] -= adjustAmount;
-
-        // Recursive call for the adjusted left neighbor
-        adjustRecursive(index - 1);
-
-        // adjust current element according to the adjusted left neighbor
-        const new_overlap = Math.min(0, (intervals[index][0] - intervals[index - 1][1]) - separator);
-        intervals[index][0] = intervals[index][0] - new_overlap;
-        intervals[index][1] = intervals[index][1] - new_overlap;
-
-        return
-    }
-
-    adjustRecursive(intervals.length - 1);
-}
-
-function computeMidpoint(a: number, b: number): number {
-    // Ensure a is less than b
-    if (a > b) {
-        [a, b] = [b, a];
-    }
-
-    // Calculate the midpoint
-    const midpoint = (a + b) / 2;
-
-    return midpoint;
-}
-
-interface ChimPlotData {
-    densities: Record<string, number[]>;
-    fai: Record<string, number>;
-    genes: Record<string, [string, number][]>;
-    geneCount: number;
-    gtf_data: any;
-    integrations: any[];
-    width: number;
-    height: number;
-    fontSize: number;
-}
-
-type Interval = [number, number];
-
-export class ChimPlot {
-    private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
-    private sections: {
-        "legend": {
-            "plot": d3.Selection<SVGSVGElement, unknown, HTMLElement, any> | null,
-            "x": number,
-            "y": number,
-            "dimensions": {
-                "font_size": number,
-                "width": number,
-                "height": number
-            }
-        },
-        "hostPlot": {
-            "plot": HostPlot | null,
-            "x": number,
-            "y": number,
-            "dimensions": {
-                "font_size": number,
-                "width": number,
-                "height": number,
-                "gene_label_height": number,
-                "gene_lines_height": number,
-                "idiogram_height": number
-            }
-        },
-        "connectionsPlot": {
-            "plot": ConnectionsPlot | null,
-            "x": number,
-            "y": number,
-            "dimensions": {
-                "font_size": number,
-                "width": number,
-                "height": number
-            }
-        },
-        "pathogenPlot": {
-            "plot": PathogenPlot | null,
-            "x": number,
-            "y": number,
-            "dimensions": {
-                "font_size": number,
-                "width": number,
-                "height": number,
-                "genome_height": number
-            }
-        }
-    };
-    private width: number;
-    private height: number;
-    private fontSize: number;
-    private densities: Record<string, number[]> = {};
-    private fai: Record<string, number> = {};
-    private genes: Record<string, [string, number][]> = {};
-    private geneCount: number = 0; // gene count threshold. Only labels above threshold will be displayed as names - oterwise simple markers
-    private gtf_data: any = { "transcripts": [], "genome_components": [] };
-    private integrations: any[] = [];
-
-    constructor(svgElement: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>,
-        data: ChimPlotData) {
-
-        this.width = data.width;
-        this.height = data.height;
-        this.fontSize = data.fontSize;
-
-        this.densities = data.densities;
-        this.fai = data.fai;
-        this.genes = data.genes;
-        this.geneCount = data.geneCount;
-        this.gtf_data = data.gtf_data;
-        this.integrations = data.integrations;
-
-        this.svg = svgElement;
-        this.sections = {
-            "legend": {
-                "plot": null,
-                "x": 0,
-                "y": 0,
-                "dimensions": {
-                    "font_size": 0,
-                    "width": 0,
-                    "height": 0
-                }
-            },
-            "hostPlot": {
-                "plot": null,
-                "x": 0,
-                "y": 0,
-                "dimensions": {
-                    "font_size": 0,
-                    "width": 0,
-                    "height": 0,
-                    "gene_label_height": 0,
-                    "gene_lines_height": 0,
-                    "idiogram_height": 0
-                }
-            },
-            "connectionsPlot": {
-                "plot": null,
-                "x": 0,
-                "y": 0,
-                "dimensions": {
-                    "font_size": 0,
-                    "width": 0,
-                    "height": 0
-                }
-            },
-            "pathogenPlot": {
-                "plot": null,
-                "x": 0,
-                "y": 0,
-                "dimensions": {
-                    "font_size": 0,
-                    "width": 0,
-                    "height": 0,
-                    "genome_height": 0
-                }
-            }
-        };
-
-        this.color_integrations();
-    }
-
-    public plot(): void {
-        this.updateSvgSize();
-        this.setupSections();
-    }
-
-    private updateSvgSize(): void {
-        this.svg
-            .attr('width', this.width)
-            .attr('height', this.height);
-        this.svg.append('rect')
-            .attr('width', this.width)
-            .attr('height', this.height)
-            .attr('fill', 'white');
-
-            
-    }
-
-    private color_integrations(): void {
-        // add color to the integration sites based on their location on the x-axis.
-        // assign from gradient scale.
-        // points which occur closer to each other on the genome should have similar colors
-
-        // get the maximum length of the genome
-        const path_genome_length = this.gtf_data["genome_end"];
-        // get color scale
-        const color = d3.scaleSequential(d3.interpolateTurbo)
-            .domain([0, path_genome_length]);
-        // iterate over the integrations and assign color
-        this.integrations.forEach(integration => {
-            integration.push(color(integration[3]));
-        });
-    }
-
-    private setupSections(): void {
-        const parameters = {
-            "idiogram_factor": 0.025,
-            "genome_factor": 0.15,
-            "connections_factor": 0.3,
-            "legend_factor": 0.15,
-        }
-
-        // gather information about the data
-        // 1. get maximum length of gene names
-        const maxGeneNameLength = Object.keys(this.genes).reduce((max, key) => Math.max(max, key.length), 0);
-
-        // Since width is invariant - we should deduce all heights and proportions relative to the width
-
-        // Calculate heights for each section
-        this.sections["hostPlot"]["dimensions"]["font_size"] = this.fontSize;
-        this.sections["hostPlot"]["dimensions"]["gene_label_height"] = (maxGeneNameLength * this.fontSize) * 8; // height of gene labels
-        this.sections["hostPlot"]["dimensions"]["gene_lines_height"] = (this.width * parameters["idiogram_factor"]); // height of lines connecting labels to idiogram
-        this.sections["hostPlot"]["dimensions"]["idiogram_height"] = (this.width * parameters["idiogram_factor"]); // height of idiogram
-        this.sections["hostPlot"]["dimensions"]["height"] = this.sections["hostPlot"]["dimensions"]["gene_label_height"] +
-            this.sections["hostPlot"]["dimensions"]["gene_lines_height"] +
-            this.sections["hostPlot"]["dimensions"]["idiogram_height"];
-        this.sections["hostPlot"]["dimensions"]["width"] = this.width * (1 - parameters["legend_factor"]);
-        this.sections["hostPlot"]["x"] = 0;
-        this.sections["hostPlot"]["y"] = 0;
-
-
-
-
-        this.sections["connectionsPlot"]["dimensions"]["height"] = this.width * parameters["connections_factor"] + this.sections["hostPlot"]["dimensions"]["idiogram_height"] / 2;
-        this.sections["connectionsPlot"]["dimensions"]["width"] = this.width * (1 - parameters["legend_factor"]);
-        this.sections["connectionsPlot"]["x"] = 0;
-        this.sections["connectionsPlot"]["y"] = this.sections["hostPlot"]["dimensions"]["height"] - this.sections["hostPlot"]["dimensions"]["idiogram_height"] / 2;
-
-
-
-
-
-        this.sections["pathogenPlot"]["dimensions"]["font_size"] = this.fontSize;
-        this.sections["pathogenPlot"]["dimensions"]["genome_height"] = this.width * parameters["genome_factor"];
-        this.sections["pathogenPlot"]["dimensions"]["height"] = this.sections["pathogenPlot"]["dimensions"]["genome_height"];
-        this.sections["pathogenPlot"]["dimensions"]["width"] = this.width * (1 - parameters["legend_factor"]);
-        this.sections["pathogenPlot"]["x"] = 0;
-        this.sections["pathogenPlot"]["y"] = this.sections["connectionsPlot"]["y"] + this.sections["connectionsPlot"]["dimensions"]["height"];
-
-
-        // update global dimensions accordingly
-        this.height = this.sections["hostPlot"]["dimensions"]["height"] + this.sections["connectionsPlot"]["dimensions"]["height"] + this.sections["pathogenPlot"]["dimensions"]["height"];
-        this.updateSvgSize()
-
-        this.sections["legend"]["dimensions"]["height"] = this.sections["connectionsPlot"]["dimensions"]["height"];
-        this.sections["legend"]["dimensions"]["width"] = (this.width * parameters["legend_factor"]) * 0.9;
-        this.sections["legend"]["dimensions"]["font_size"] = this.fontSize;
-        this.sections["legend"]["x"] = this.width * (1 - parameters["legend_factor"]) + (this.width * parameters["legend_factor"]) * 0.075;
-        this.sections["legend"]["y"] = this.sections["connectionsPlot"]["y"];
-
-        const legendSvg = this.svg.append('svg')
-            .attr('x', this.sections["legend"]["x"])
-            .attr('y', this.sections["legend"]["y"])
-            .attr('width', this.sections["legend"]["dimensions"]["width"])
-            .attr('height', this.sections["legend"]["dimensions"]["height"]);
-
-        const connectionsPlotSvg = this.svg.append('svg')
-            .attr('x', this.sections["connectionsPlot"]["x"])
-            .attr('y', this.sections["connectionsPlot"]["y"])
-            .attr('width', this.sections["connectionsPlot"]["dimensions"]["width"])
-            .attr('height', this.sections["connectionsPlot"]["dimensions"]["height"]);
-
-        // Create individual SVG elements for each plot
-        const hostPlotSvg = this.svg.append('svg')
-            .attr('x', this.sections["hostPlot"]["x"])
-            .attr('y', this.sections["hostPlot"]["y"])
-            .attr('width', this.sections["hostPlot"]["dimensions"]["width"])
-            .attr('height', this.sections["hostPlot"]["dimensions"]["height"]);
-
-        const pathogenPlotSvg = this.svg.append('svg')
-            .attr('x', this.sections["pathogenPlot"]["x"])
-            .attr('y', this.sections["pathogenPlot"]["y"])
-            .attr('width', this.sections["pathogenPlot"]["dimensions"]["width"])
-            .attr('height', this.sections["pathogenPlot"]["dimensions"]["height"]);
-
-        // Create instances of Legend, HostPlot, ConnectionsPlot, and PathogenPlot
-        this.sections["legend"]["plot"] = new Legend(legendSvg,
-            this.sections["legend"]["dimensions"]);
-        this.sections["legend"]["plot"].plot();
-
-        this.sections["hostPlot"]["plot"] = new HostPlot(hostPlotSvg,
-            this.sections["hostPlot"]["dimensions"],
-            this.densities,
-            this.fai,
-            this.genes,
-            this.geneCount);
-        this.sections["hostPlot"]["plot"].plot();
-        const seqids = this.sections["hostPlot"]["plot"].get_seqids();
-
-        this.sections["pathogenPlot"]["plot"] = new PathogenPlot(pathogenPlotSvg,
-            this.sections["pathogenPlot"]["dimensions"],
-            this.gtf_data);
-        this.sections["pathogenPlot"]["plot"].plot();
-
-        const path_data = {
-            "x": this.sections["pathogenPlot"]["x"],
-            "y": this.sections["pathogenPlot"]["y"],
-            "width": this.sections["pathogenPlot"]["dimensions"]["width"],
-            "height": this.sections["pathogenPlot"]["dimensions"]["height"],
-            "length": this.sections["pathogenPlot"]["plot"].get_length(),
-        }
-        this.sections["connectionsPlot"]["plot"] = new ConnectionsPlot(connectionsPlotSvg,
-            this.sections["connectionsPlot"]["dimensions"],
-            this.integrations,
-            seqids,
-            path_data);
-        const used_integrations = this.sections["connectionsPlot"]["plot"].plot();
-
-        // plot integration sites intot he transcriptome map
-        this.sections["pathogenPlot"]["plot"].plot_integrations(used_integrations);
-    }
-}
-
-class ConnectionsPlot {
+export class ConnectionsPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     private dimensions = {
         "font_size": 0,
@@ -438,7 +94,7 @@ class ConnectionsPlot {
                 .attr('d', lineGenerator)
                 .attr('fill', 'none')
                 .style('opacity', integration[4] / 500)
-                .style('stroke', integration[5]) // Adjust line color for gene labels
+                .style('stroke', "grey") // Adjust line color for gene labels
                 .style('stroke-width', 2);
 
             this.connections.push(connection);
@@ -449,7 +105,7 @@ class ConnectionsPlot {
     }
 }
 
-class PathogenPlot {
+export class PathogenPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     private dimensions = {
         "font_size": 0,
@@ -550,7 +206,7 @@ class PathogenPlot {
         });
 
         const separator = 20;
-        adjustIntervals(spread_da_positions, separator);
+        utils.adjustIntervals(spread_da_positions, separator);
 
         // iterate over genome components and plot them accordingly
         let da_i = 0;
@@ -579,8 +235,8 @@ class PathogenPlot {
             let ys = [0, 0, 0, 0];
             if (component["type"] === "da") {
                 const da_position = spread_da_positions[da_i];
-                da_x = computeMidpoint(da_position[0], da_position[1]);
-                raw_da_x = computeMidpoint(raw_da_positions[da_i][0], raw_da_positions[da_i][1]);
+                da_x = utils.computeMidpoint(da_position[0], da_position[1]);
+                raw_da_x = utils.computeMidpoint(raw_da_positions[da_i][0], raw_da_positions[da_i][1]);
                 const da_y = this.dimensions["genome_height"];
                 da_color = component["name"][1] === "A" ? "#ff0000" : "#000000";
                 this.svg.append('text')
@@ -735,7 +391,7 @@ class PathogenPlot {
 }
 
 // Sets up a panel for all transcripts to be displayed
-class TranscriptPlot {
+export class TranscriptPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     dimensions = {
         "font_size": 0,
@@ -814,50 +470,7 @@ class TranscriptPlot {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// Additional classes (HostPlot, ConnectionsPlot, PathogenPlot) can be implemented similarly.
-class HostPlot {
+export class HostPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     private densities: Record<string, number[]> = {};
     private fai: Record<string, number> = {};
@@ -957,7 +570,7 @@ class HostPlot {
 }
 
 // plots a single idiogram in the allotted space and adds appropriate labels
-class IdiogramPlot {
+export class IdiogramPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     private dimensions = {
         "font_size": 0,
@@ -1084,7 +697,7 @@ class IdiogramPlot {
             });
 
             const separator = 10;
-            adjustIntervals(spread_label_positions, separator);
+            utils.adjustIntervals(spread_label_positions, separator);
 
             let gene_index = 0;
             this.genes.forEach(gene => {
@@ -1169,7 +782,7 @@ class IdiogramPlot {
 }
 
 // builds a legend for the plot
-class Legend {
+export class Legend {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     private dimensions = {
         "font_size": 0,
@@ -1311,5 +924,33 @@ class Legend {
             .style('fill', 'black')
             .style('font-size', legend_font_size + "px")
             .text('ORF');
+    }
+}
+
+export class ExpressionPlot {
+    private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
+    private dimensions = {
+        "font_size": 0,
+        "width": 0,
+        "height": 0
+    };
+
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>,
+        dimensions: {
+            "font_size": number,
+            "width": number,
+            "height": number
+        }) {
+        this.svg = svg;
+        this.dimensions = dimensions;
+    }
+    
+    public plot() {
+        // plot a circle
+        const circle = this.svg.append('circle')
+            .attr('cx', this.dimensions["width"] / 2)
+            .attr('cy', this.dimensions["height"] / 2)
+            .attr('r', this.dimensions["height"] / 4)
+            .style('fill', 'red');
     }
 }

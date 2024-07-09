@@ -1,0 +1,43 @@
+.navbar {
+  background-color: #343a40; /* Dark background color */
+  color: white;
+  padding-top: 0.5rem; /* Adjust top padding */
+  padding-bottom: 0.5rem; /* Adjust bottom padding */
+  min-height: 60px; /* Adjust the minimum height of the navbar */
+}
+
+.navbar-brand img {
+  height: 40px; /* Reduce the height of the logo */
+  margin-right: 10px; /* Adjust the margin if necessary */
+}
+
+.navbar-brand span {
+  display: none;
+}
+
+@media (min-width: 992px) {
+  .navbar-brand span {
+    display: inline;
+  }
+}
+
+.border-bottom {
+  border-bottom: 1px solid #dee2e6 !important;
+}
+
+button.btn-primary {
+  margin-right: 10px; /* Adjust button margin */
+}
+
+.nav-link img {
+  height: 40px; /* Reduce the height of icons within links */
+  margin-right: 10px; /* Adjust margin if necessary */
+}
+
+.navbar-nav .nav-link {
+  color: rgb(75, 75, 75);
+}
+
+.navbar-nav .nav-link.active {
+  font-weight: bold;
+}
