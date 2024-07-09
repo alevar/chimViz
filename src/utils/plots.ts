@@ -112,7 +112,6 @@ export class PathogenPlot {
         "width": 0,
         "height": 0,
         "genome_height": 0,
-        "transcript_height": 0
     };
     private gtf_data: any = {};
 
@@ -121,7 +120,6 @@ export class PathogenPlot {
     private genome_length: number = 0;
 
     private da_plot_height;
-    private integrations_height;
     private da_plot_y;
     private orf_plot_height;
 
@@ -131,8 +129,7 @@ export class PathogenPlot {
             "font_size": number,
             "width": number,
             "height": number,
-            "genome_height": number,
-            "transcript_height": number
+            "genome_height": number
         },
         gtf_data: any) {
         this.svg = svg;
@@ -142,7 +139,6 @@ export class PathogenPlot {
 
         this.orf_plot_height = this.dimensions["genome_height"] * 0.45;
         this.da_plot_y = this.dimensions["genome_height"] * 0.55;
-        this.integrations_height = this.dimensions["genome_height"] * 0.55;
         this.da_plot_height = this.dimensions["genome_height"] * 0.55;
     }
 
@@ -390,22 +386,76 @@ export class PathogenPlot {
     }
 }
 
-// Sets up a panel for all transcripts to be displayed
-export class TranscriptPlot {
+// builds a panel of all transcripts to be plotted
+// builds a panel of all transcripts to be plotted
+export class TranscriptomePlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
-    dimensions = {
+    private dimensions = {
+        "font_size": 0,
+        "width": 0,
+        "height": 0,
+        "transcriptome_height": 0,
+    };
+    private gtf_data: any = {};
+    private genome_length: number = 0;
+    private transcript_plots: Record<string, TranscriptPlot> = {};
+    private transcript_height: number = 0;
+
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>,
+        dimensions: {
+            "font_size": number,
+            "width": number,
+            "height": number,
+            "transcriptome_height": number
+        },
+        gtf_data: any) {
+        this.svg = svg;
+        this.dimensions = dimensions;
+        this.gtf_data = gtf_data;
+        this.genome_length = this.gtf_data["genome_end"];
+        this.transcript_height = this.dimensions["transcriptome_height"] / Object.keys(this.gtf_data["transcripts"]).length;
+    }
+
+    public plot(): void {
+        let y_pos = 0;
+        Object.entries(this.gtf_data["transcripts"]).forEach(([tid, transcript]) => {
+            const transcriptSvg = this.svg.append('svg')
+                .attr('x', 0)
+                .attr('y', y_pos)
+                .attr('width', this.dimensions["width"])
+                .attr('height', this.transcript_height);
+
+            this.transcript_plots[tid] = new TranscriptPlot(transcriptSvg,
+                {
+                    "font_size": this.dimensions["font_size"],
+                    "width": this.dimensions["width"],
+                    "height": this.transcript_height,
+                },
+                this.genome_length,
+                tid,
+                transcript);
+            this.transcript_plots[tid].plot();
+            y_pos += this.transcript_height;
+        });
+    }
+}
+
+// displays a single transcript
+class TranscriptPlot {
+    private svg: d3.Selection<SVGGElement, unknown, HTMLElement, any>;
+    private dimensions = {
         "font_size": 0,
         "width": 0,
         "height": 0
     };
     private genome_length: number;
     private tid: string;
-    private transcript: { "exons": [number, number], "cds": [number, number] } = { "exons": [0, 0], "cds": [0, 0] };
+    private transcript: { "exons": [number, number][], "cds": [number, number][] } = { "exons": [[0, 0]], "cds": [[0, 0]] };
     private exon_svgs: any;
     private cds_svgs: any;
     private intron_svgs: any;
 
-    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>,
+    constructor(svg: d3.Selection<SVGGElement, unknown, HTMLElement, any>,
         dimensions: {
             "font_size": number,
             "width": number,
@@ -413,7 +463,7 @@ export class TranscriptPlot {
         },
         genome_length: number,
         tid: string,
-        transcript: { "exons": [number, number], "cds": [number, number] }) {
+        transcript: { "exons": [number, number][], "cds": [number, number][] }) {
         this.svg = svg;
         this.dimensions = dimensions;
         this.genome_length = genome_length;
@@ -469,6 +519,8 @@ export class TranscriptPlot {
         });
     }
 }
+
+
 
 export class HostPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;

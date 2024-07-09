@@ -34,7 +34,17 @@ export class SplicePlot {
                 "width": number,
                 "height": number,
                 "genome_height": number,
-                "transcript_height": number,
+            }
+        },
+        "transcriptPlot": {
+            "plot": plots.TranscriptPlot | null,
+            "x": number,
+            "y": number,
+            "dimensions": {
+                "font_size": number,
+                "width": number,
+                "height": number,
+                "transcriptome_height": number,
             }
         },
         "expressionPlot": {
@@ -83,7 +93,17 @@ export class SplicePlot {
                     "width": 0,
                     "height": 0,
                     "genome_height": 0,
-                    "transcript_height": 0,
+                }
+            },
+            "transcriptPlot": {
+                "plot": null,
+                "x": 0,
+                "y": 0,
+                "dimensions": {
+                    "font_size": 0,
+                    "width": 0,
+                    "height": 0,
+                    "transcriptome_height": 0,
                 }
             },
             "expressionPlot": {
@@ -116,7 +136,8 @@ export class SplicePlot {
 
     private setupSections(): void {
         const parameters = {
-            "genome_factor": 0.7,
+            "genome_factor": 0.35,
+            "transcriptome_factor": 0.65,
             "expression_factor": 0.3,
             "legend_factor": 0.15,
         }
@@ -131,12 +152,17 @@ export class SplicePlot {
         this.sections["pathogenPlot"]["x"] = 0;
         this.sections["pathogenPlot"]["y"] = 0;
 
+        this.sections["transcriptPlot"]["dimensions"]["font_size"] = this.fontSize;
+        this.sections["transcriptPlot"]["dimensions"]["transcriptome_height"] = this.height * parameters["transcriptome_factor"];
+        this.sections["transcriptPlot"]["dimensions"]["height"] = this.sections["transcriptPlot"]["dimensions"]["transcriptome_height"];
+        this.sections["transcriptPlot"]["dimensions"]["width"] = this.width * (1 - parameters["legend_factor"]);
+        this.sections["transcriptPlot"]["x"] = 0;
+        this.sections["transcriptPlot"]["y"] = this.sections["pathogenPlot"]["dimensions"]["height"];
 
-        // update global dimensions accordingly
         this.sections["expressionPlot"]["dimensions"]["height"] = this.height * parameters["expression_factor"] + this.sections["pathogenPlot"]["dimensions"]["height"];
         this.sections["expressionPlot"]["dimensions"]["width"] = this.width * (1 - parameters["legend_factor"]);
         this.sections["expressionPlot"]["x"] = 0;
-        this.sections["expressionPlot"]["y"] = this.sections["pathogenPlot"]["dimensions"]["height"];
+        this.sections["expressionPlot"]["y"] = this.sections["pathogenPlot"]["dimensions"]["height"] + this.sections["transcriptPlot"]["dimensions"]["height"];
         this.updateSvgSize()
 
         this.sections["legend"]["dimensions"]["height"] = this.sections["pathogenPlot"]["dimensions"]["height"] + this.sections["expressionPlot"]["dimensions"]["height"];
@@ -157,6 +183,12 @@ export class SplicePlot {
             .attr('width', this.sections["pathogenPlot"]["dimensions"]["width"])
             .attr('height', this.sections["pathogenPlot"]["dimensions"]["height"]);
 
+        const transcriptPlotSvg = this.svg.append('svg')
+            .attr('x', this.sections["transcriptPlot"]["x"])
+            .attr('y', this.sections["transcriptPlot"]["y"])
+            .attr('width', this.sections["transcriptPlot"]["dimensions"]["width"])
+            .attr('height', this.sections["transcriptPlot"]["dimensions"]["height"]);
+
         const expressionPlotSvg = this.svg.append('svg')
             .attr('x', this.sections["expressionPlot"]["x"])
             .attr('y', this.sections["expressionPlot"]["y"])
@@ -172,6 +204,11 @@ export class SplicePlot {
             this.sections["pathogenPlot"]["dimensions"],
             this.gtf_data);
         this.sections["pathogenPlot"]["plot"].plot();
+
+        this.sections["transcriptPlot"]["plot"] = new plots.TranscriptomePlot(transcriptPlotSvg,
+            this.sections["transcriptPlot"]["dimensions"],
+            this.gtf_data);
+        this.sections["transcriptPlot"]["plot"].plot();
 
         this.sections["expressionPlot"]["plot"] = new plots.ExpressionPlot(expressionPlotSvg,
             this.sections["expressionPlot"]["dimensions"]);
