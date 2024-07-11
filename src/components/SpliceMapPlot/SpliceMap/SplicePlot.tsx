@@ -136,9 +136,9 @@ export class SplicePlot {
 
     private setupSections(): void {
         const parameters = {
-            "genome_factor": 0.25,
-            "transcriptome_factor": 0.55,
-            "expression_factor": 0.2,
+            "genome_factor": 0.2,
+            "transcriptome_factor": 0.5,
+            "expression_factor": 0.3,
             "legend_factor": 0.15,
         }
 
@@ -161,6 +161,7 @@ export class SplicePlot {
 
         this.sections["expressionPlot"]["dimensions"]["height"] = this.height * parameters["expression_factor"];
         this.sections["expressionPlot"]["dimensions"]["width"] = this.width * (1 - parameters["legend_factor"]);
+        this.sections["expressionPlot"]["dimensions"]["font_size"] = this.fontSize
         this.sections["expressionPlot"]["x"] = 0;
         this.sections["expressionPlot"]["y"] = this.sections["pathogenPlot"]["dimensions"]["height"] + this.sections["transcriptPlot"]["dimensions"]["height"];
 
@@ -189,17 +190,19 @@ export class SplicePlot {
             .attr('y', this.sections["transcriptPlot"]["y"])
             .attr('width', this.sections["transcriptPlot"]["dimensions"]["width"])
             .attr('height', this.sections["transcriptPlot"]["dimensions"]["height"]);
+        // console.log("transcriptPlotSvg",transcriptPlotSvg);
 
         const expressionPlotSvg = this.svg.append('svg')
             .attr('x', this.sections["expressionPlot"]["x"])
             .attr('y', this.sections["expressionPlot"]["y"])
             .attr('width', this.sections["expressionPlot"]["dimensions"]["width"])
             .attr('height', this.sections["expressionPlot"]["dimensions"]["height"]);
+        // console.log("expressionPlotSvg",expressionPlotSvg);
 
         // Create instances of Legend, HostPlot, ConnectionsPlot, and PathogenPlot
-        this.sections["legend"]["plot"] = new plots.Legend(legendSvg,
-            this.sections["legend"]["dimensions"]);
-        this.sections["legend"]["plot"].plot();
+        // this.sections["legend"]["plot"] = new plots.Legend(legendSvg,
+        //     this.sections["legend"]["dimensions"]);
+        // this.sections["legend"]["plot"].plot();
 
         this.sections["pathogenPlot"]["plot"] = new plots.PathogenPlot(pathogenPlotSvg,
             this.sections["pathogenPlot"]["dimensions"],
@@ -214,8 +217,7 @@ export class SplicePlot {
         const expression_data = [1,2,3];
         this.sections["expressionPlot"]["plot"] = new plots.ExpressionPlot(expressionPlotSvg,
             this.sections["expressionPlot"]["dimensions"],
-            this.gtf_data,
-            expression_data
+            this.gtf_data
         );
         this.sections["expressionPlot"]["plot"].plot();
     }

@@ -111,19 +111,21 @@ export class DonorAcceptorPlot {
     private genome_length: number;
     private gtf_data: any;
     private direction: string;
+    private spread: number;
 
-    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, genome_length: number, gtf_data: any, direction: string = 'bottom-up') {
+    private spread_xs: Interval[] = [];
+    private raw_xs: Interval[] = [];
+
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, genome_length: number, gtf_data: any, spread: number, direction: string = 'bottom-up') {
         this.svg = svg;
         this.dimensions = dimensions;
         this.genome_length = genome_length;
         this.gtf_data = gtf_data;
         this.direction = direction;
-    }
+        this.spread = spread;
 
-    public plot(): void {
-        const char_width = this.dimensions["font_size"] / 2;
-        const raw_da_positions: Interval[] = [];
-        const spread_da_positions: Interval[] = [];
+        // construct x transformation
+        const char_width = this.dimensions["font_size"] / 1.25;
 
         this.gtf_data["genome_components"].forEach(component => {
             if (component["type"] !== "da") {
@@ -133,19 +135,24 @@ export class DonorAcceptorPlot {
             const label_width = component["name"].length * char_width;
             const interval_start = percent_position - label_width / 2;
             const interval_end = percent_position + label_width / 2;
-            raw_da_positions.push([interval_start, interval_end]);
-            spread_da_positions.push([interval_start, interval_end]);
+            this.raw_xs.push([interval_start, interval_end]);
+            this.spread_xs.push([interval_start, interval_end]);
         });
 
-        const separator = 20;
-        utils.adjustIntervals(spread_da_positions, separator);
+        utils.adjustIntervals(this.spread_xs, 1, this.genome_length, this.spread);
+    }
 
+    public get_xs(): any {
+        return {"raw_xs": this.raw_xs, "spread_xs": this.spread_xs};
+    }
+
+    public plot(): void {
         let da_i = 0;
         for (const component of this.gtf_data["genome_components"]) {
             if (component["type"] === "da") {
-                const da_position = spread_da_positions[da_i];
+                const da_position = this.spread_xs[da_i];
                 const da_x = utils.computeMidpoint(da_position[0], da_position[1]);
-                const raw_da_x = utils.computeMidpoint(raw_da_positions[da_i][0], raw_da_positions[da_i][1]);
+                const raw_da_x = utils.computeMidpoint(this.raw_xs[da_i][0], this.raw_xs[da_i][1]);
                 const da_color = component["name"][1] === "A" ? "#ff0000" : "#000000";
 
                 const da_label_y = this.direction === 'bottom-up'
@@ -176,19 +183,10 @@ export class DonorAcceptorPlot {
                         this.dimensions["height"] - this.dimensions["y"] - (line_segment_xshift * 3)
                     ];
 
-                const xs = this.direction === 'bottom-up'
-                    ? [
-                        da_x,
-                        da_x,
-                        raw_da_x,
-                        raw_da_x
-                    ]
-                    : [
-                        raw_da_x,
+                const xs = [raw_da_x,
                         raw_da_x,
                         da_x,
-                        da_x
-                    ];
+                        da_x];
 
                 this.svg.append('line')
                     .attr('x1', xs[0])
@@ -391,7 +389,7 @@ export class PathogenPlot {
             "height": this.da_plot_height,
             "y": this.da_plot_y
         };
-        const donorAcceptorPlot = new DonorAcceptorPlot(this.svg, da_dimensions, this.genome_length, this.gtf_data, "bottom-up");
+        const donorAcceptorPlot = new DonorAcceptorPlot(this.svg, da_dimensions, this.genome_length, this.gtf_data, 200, "top-down");
         donorAcceptorPlot.plot();
 
         const orf_dimensions = {
@@ -1013,24 +1011,82 @@ export class Legend {
     }
 }
 
+export class CoveragePlot {
+    private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
+    private dimensions: any;
+    private genome_length: number;
+    private coverage_data: number[];
+    private yScale: d3.ScaleLinear<number, number>;
+
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, genome_length: number, coverage_data: number[], yScale: d3.ScaleLinear<number, number>) {
+        this.svg = svg;
+        this.dimensions = dimensions;
+        this.genome_length = genome_length;
+        this.coverage_data = coverage_data;
+        this.yScale = yScale;
+    }
+
+    public plot(): void {
+        const xScale = d3.scaleLinear()
+            .domain([0, this.coverage_data.length])
+            .range([this.dimensions.x, this.dimensions.x + this.dimensions.width]);
+
+        // Define the area generator
+        const area = d3.area()
+            .x((d, i) => xScale(i))
+            .y0(this.dimensions.y + this.dimensions.height)
+            .y1(d => this.yScale(d))
+            .curve(d3.curveLinear);
+
+        // Append the coverage plot group
+        const coverageGroup = this.svg.append("g")
+            .attr("transform", `translate(0,0)`);
+
+        // draw rectangle to highlight plot
+        coverageGroup.append("rect")
+            .attr("x", this.dimensions.x)
+            .attr("y", this.dimensions.y)
+            .attr("width", this.dimensions.width)
+            .attr("height", this.dimensions.height)
+            .attr("fill", "rgba(200, 200, 200, 0.5)");
+
+        // Draw the area path
+        coverageGroup.append("path")
+            .datum(this.coverage_data)
+            .attr("class", "coverage-area")
+            .attr("d", area)
+            .attr("fill", "steelblue");
+    }
+}
+
 export class ExpressionPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     private dimensions: any;
     private gtf_data: any;
     private genome_length: number = 0;
-    private expression_data: number[] = [];
 
     private da_plot_y: number = 0;
     private da_plot_height: number = 0;
+    private box_plot_y: number = 0;
+    private box_plot_height: number = 0;
 
-    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, gtf_data: any, expression_data: number[]) {
+    private da_plot_factor = 0.5;
+    private box_plot_factor = 0.5;
+    
+    private margin = { top: 20, right: 20, bottom: 20, left: 20 };
+
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, gtf_data: any) {
         this.svg = svg;
         this.dimensions = dimensions;
         this.gtf_data = gtf_data;
-        this.expression_data = expression_data;
 
         this.da_plot_y = 0;
-        this.da_plot_height = this.dimensions["height"];
+        this.da_plot_height = this.dimensions.height * this.da_plot_factor;
+        this.box_plot_y = this.da_plot_height;
+        this.box_plot_height = this.dimensions.height * this.box_plot_factor;
+
+        // Adjust dimensions to account for margins
+        this.dimensions.width -= this.margin.right;
     }
 
     public get_length(): number {
@@ -1040,12 +1096,62 @@ export class ExpressionPlot {
     public plot(): void {
         this.genome_length = this.gtf_data["genome_end"];
         const da_dimensions = {
-            "font_size": this.dimensions["font_size"],
-            "width": this.dimensions["width"],
-            "height": this.da_plot_height,
-            "y": this.da_plot_y
+            font_size: this.dimensions.font_size,
+            width: this.dimensions.width,
+            height: this.da_plot_height,
+            y: this.da_plot_y,
         };
-        const donorAcceptorPlot = new DonorAcceptorPlot(this.svg, da_dimensions, this.genome_length, this.gtf_data, "top-down");
+
+        const donorAcceptorPlot = new DonorAcceptorPlot(this.svg, da_dimensions, this.genome_length, this.gtf_data, 200, 'bottom-up');
         donorAcceptorPlot.plot();
+
+        // Create shared y-axis for the coverage plots
+        const yScale = d3.scaleLinear()
+            .domain([0, 100])  // assuming 100 is the max value for the y-axis
+            .range([this.box_plot_y + this.box_plot_height, this.box_plot_y]);
+
+        const yAxis = d3.axisRight(yScale)
+            .ticks(5);
+
+        // Add a background rectangle for the grid
+        this.svg.append("rect")
+            .attr("class", "grid-background")
+            .attr("x", 0)
+            .attr("y", this.box_plot_y)
+            .attr("width", this.dimensions.width)
+            .attr("height", this.box_plot_height)
+            .attr("fill", "rgba(200, 200, 200, 0.5)");
+
+        // Add horizontal grid lines
+        this.svg.append("g")
+            .attr("class", "grid")
+            .attr("stroke", "rgba(0, 0, 0, 0.1)")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "5,5")
+            .call(d3.axisLeft(yScale)
+                .ticks(5)
+                .tickSize(-this.dimensions.width)
+                .tickFormat(null));
+
+        this.svg.append("g")
+            .attr("class", "y axis")
+            .attr("transform", `translate(${this.dimensions.width},0)`)  // Shift y-axis to the right
+            .call(yAxis);
+
+        // add a shared y-axis to the boxplot area with horizontal lines across and transparent background
+        const xs = donorAcceptorPlot.get_xs();
+        // plot boxes at the terminations of the DA plot        
+        for (const x of xs.spread_xs) {
+            const cov_dimensions = {
+                font_size: this.dimensions.font_size,
+                width: x[1] - x[0],
+                height: this.box_plot_height,
+                y: this.box_plot_y,
+                x: x[0],
+            };
+
+            const coveragePlot = new CoveragePlot(this.svg, cov_dimensions, this.genome_length, [10, 20, 30, 40, 50, 60], yScale);
+            coveragePlot.plot();
+        }
     }
 }
