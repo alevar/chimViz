@@ -9,9 +9,9 @@ const SpliceMapPlot: React.FC = () => {
     transcripts: [],
     genome_components: [],
   });
-  const [fontSize, setFontSize] = useState<number>(12);
-  const [width, setWidth] = useState<number>(1200);
-  const [height, setHeight] = useState<number>(500);
+  const [fontSize, setFontSize] = useState<number>(10);
+  const [width, setWidth] = useState<number>(1400);
+  const [height, setHeight] = useState<number>(700);
 
   const handleFileUpload = (
     event: React.ChangeEvent<HTMLInputElement>,

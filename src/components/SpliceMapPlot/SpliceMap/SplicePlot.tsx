@@ -136,9 +136,9 @@ export class SplicePlot {
 
     private setupSections(): void {
         const parameters = {
-            "genome_factor": 0.35,
-            "transcriptome_factor": 0.65,
-            "expression_factor": 0.3,
+            "genome_factor": 0.25,
+            "transcriptome_factor": 0.55,
+            "expression_factor": 0.2,
             "legend_factor": 0.15,
         }
 
@@ -159,17 +159,18 @@ export class SplicePlot {
         this.sections["transcriptPlot"]["x"] = 0;
         this.sections["transcriptPlot"]["y"] = this.sections["pathogenPlot"]["dimensions"]["height"];
 
-        this.sections["expressionPlot"]["dimensions"]["height"] = this.height * parameters["expression_factor"] + this.sections["pathogenPlot"]["dimensions"]["height"];
+        this.sections["expressionPlot"]["dimensions"]["height"] = this.height * parameters["expression_factor"];
         this.sections["expressionPlot"]["dimensions"]["width"] = this.width * (1 - parameters["legend_factor"]);
         this.sections["expressionPlot"]["x"] = 0;
         this.sections["expressionPlot"]["y"] = this.sections["pathogenPlot"]["dimensions"]["height"] + this.sections["transcriptPlot"]["dimensions"]["height"];
-        this.updateSvgSize()
 
         this.sections["legend"]["dimensions"]["height"] = this.sections["pathogenPlot"]["dimensions"]["height"] + this.sections["expressionPlot"]["dimensions"]["height"];
         this.sections["legend"]["dimensions"]["width"] = (this.width * parameters["legend_factor"]) * 0.9;
         this.sections["legend"]["dimensions"]["font_size"] = this.fontSize;
         this.sections["legend"]["x"] = this.width * (1 - parameters["legend_factor"]) + (this.width * parameters["legend_factor"]) * 0.075;
         this.sections["legend"]["y"] = 0
+
+        this.updateSvgSize()
 
         const legendSvg = this.svg.append('svg')
             .attr('x', this.sections["legend"]["x"])
@@ -210,8 +211,13 @@ export class SplicePlot {
             this.gtf_data);
         this.sections["transcriptPlot"]["plot"].plot();
 
+        const expression_data = [1,2,3];
         this.sections["expressionPlot"]["plot"] = new plots.ExpressionPlot(expressionPlotSvg,
-            this.sections["expressionPlot"]["dimensions"]);
+            this.sections["expressionPlot"]["dimensions"],
+            this.gtf_data,
+            expression_data
+        );
+        this.sections["expressionPlot"]["plot"].plot();
 
         const path_data = {
             "x": this.sections["pathogenPlot"]["x"],

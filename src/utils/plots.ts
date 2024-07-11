@@ -1015,28 +1015,37 @@ export class Legend {
 
 export class ExpressionPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
-    private dimensions = {
-        "font_size": 0,
-        "width": 0,
-        "height": 0
-    };
+    private dimensions: any;
+    private gtf_data: any;
+    private genome_length: number = 0;
+    private expression_data: number[] = [];
 
-    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>,
-        dimensions: {
-            "font_size": number,
-            "width": number,
-            "height": number
-        }) {
+    private da_plot_y: number = 0;
+    private da_plot_height: number = 0;
+
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, gtf_data: any, expression_data: number[]) {
         this.svg = svg;
         this.dimensions = dimensions;
+        this.gtf_data = gtf_data;
+        this.expression_data = expression_data;
+
+        this.da_plot_y = 0;
+        this.da_plot_height = this.dimensions["height"];
     }
-    
-    public plot() {
-        // plot a circle
-        const circle = this.svg.append('circle')
-            .attr('cx', this.dimensions["width"] / 2)
-            .attr('cy', this.dimensions["height"] / 2)
-            .attr('r', this.dimensions["height"] / 4)
-            .style('fill', 'red');
+
+    public get_length(): number {
+        return this.genome_length;
+    }
+
+    public plot(): void {
+        this.genome_length = this.gtf_data["genome_end"];
+        const da_dimensions = {
+            "font_size": this.dimensions["font_size"],
+            "width": this.dimensions["width"],
+            "height": this.da_plot_height,
+            "y": this.da_plot_y
+        };
+        const donorAcceptorPlot = new DonorAcceptorPlot(this.svg, da_dimensions, this.genome_length, this.gtf_data,"bottom-up");
+        donorAcceptorPlot.plot();
     }
 }
