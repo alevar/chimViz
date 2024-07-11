@@ -391,7 +391,7 @@ export class PathogenPlot {
             "height": this.da_plot_height,
             "y": this.da_plot_y
         };
-        const donorAcceptorPlot = new DonorAcceptorPlot(this.svg, da_dimensions, this.genome_length, this.gtf_data,"top-down");
+        const donorAcceptorPlot = new DonorAcceptorPlot(this.svg, da_dimensions, this.genome_length, this.gtf_data, "bottom-up");
         donorAcceptorPlot.plot();
 
         const orf_dimensions = {
@@ -1045,7 +1045,7 @@ export class ExpressionPlot {
             "height": this.da_plot_height,
             "y": this.da_plot_y
         };
-        const donorAcceptorPlot = new DonorAcceptorPlot(this.svg, da_dimensions, this.genome_length, this.gtf_data,"bottom-up");
+        const donorAcceptorPlot = new DonorAcceptorPlot(this.svg, da_dimensions, this.genome_length, this.gtf_data, "top-down");
         donorAcceptorPlot.plot();
     }
 }

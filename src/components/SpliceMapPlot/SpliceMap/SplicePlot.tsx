@@ -218,13 +218,5 @@ export class SplicePlot {
             expression_data
         );
         this.sections["expressionPlot"]["plot"].plot();
-
-        const path_data = {
-            "x": this.sections["pathogenPlot"]["x"],
-            "y": this.sections["pathogenPlot"]["y"],
-            "width": this.sections["pathogenPlot"]["dimensions"]["width"],
-            "height": this.sections["pathogenPlot"]["dimensions"]["height"],
-            "length": this.sections["pathogenPlot"]["plot"].get_length(),
-        }
     }
 }
