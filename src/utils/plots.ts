@@ -1051,7 +1051,10 @@ export class CoveragePlot {
             .attr("width", this.dimensions.width)
             .attr("height", this.dimensions.height)
             .attr("fill", this.color)
-            .attr('fill-opacity', 0.2);
+            .attr("fill-opacity", 0.2)  // Opacity of the triangle
+            .attr("stroke", this.color)  // Color of the triangle lines
+            .attr("stroke-opacity", 0.3)  // Opacity of the triangle
+            .attr("stroke-width", 1);  // Width of the triangle lines
 
         // Draw the area path
         coverageGroup.append("path")
@@ -1062,52 +1065,111 @@ export class CoveragePlot {
     }
 }
 
+// plots connector triangles from a point to a box
+export class ConnectorsPlot {
+    private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
+    private dimensions: any;
+    private xs: any;
+
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, xs: any) {
+        this.svg = svg;
+        this.dimensions = dimensions;
+        this.xs = xs;
+    }
+
+    public plot(): void {
+        for (let xi = 0; xi < this.xs.raw_xs.length; xi++) {
+            const raw_xs = this.xs.raw_xs[xi];
+            const spread_xs = this.xs.spread_xs[xi];
+            const color = this.xs.colors[xi];
+            const raw_midpoint = utils.computeMidpoint(raw_xs[0],raw_xs[1]);
+            const spread_midpoint = utils.computeMidpoint(spread_xs[0],spread_xs[1]);
+            console.log(raw_midpoint, spread_midpoint,this.dimensions)
+            
+            // draw a triangle from raw_midpoint to spread interval
+            this.svg.append("polygon")
+                .attr("points", `${raw_midpoint},${this.dimensions.y} ${spread_xs[0]},${this.dimensions.y + this.dimensions.height} ${spread_xs[1]},${this.dimensions.y + this.dimensions.height}`)
+                .attr("fill", "none")  // No fill for the triangle
+                .attr("fill", color)  // Color of the triangle lines
+                .attr("fill-opacity", 0.2)  // Opacity of the triangle
+                .attr("stroke", color)  // Color of the triangle lines
+                .attr("stroke-opacity", 0.3)  // Opacity of the triangle
+                .attr("stroke-width", 1);  // Width of the triangle lines
+
+            // Plot the line connecting raw_midpoint to spread_midpoint
+            this.svg.append("line")
+                .attr("x1", raw_midpoint)
+                .attr("y1", this.dimensions.y)
+                .attr("x2", spread_midpoint)
+                .attr("y2", this.dimensions.y + this.dimensions.height)
+                .attr("stroke", color)  // Color of the line
+                .attr("stroke-width", 1);  // Width of the line
+        }
+    }
+}
+
 export class ExpressionPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     private dimensions: any;
     private gtf_data: any;
     private genome_length: number = 0;
 
-    private da_plot_y: number = 0;
-    private da_plot_height: number = 0;
+    private connectors_plot_y: number = 0;
+    private connectors_plot_height: number = 0;
     private box_plot_y: number = 0;
     private box_plot_height: number = 0;
 
-    private da_plot_factor = 0.5;
+    private connectors_plot_factor = 0.5;
     private box_plot_factor = 0.5;
     
-    private margin = { top: 20, right: 20, bottom: 20, left: 20 };
+    private margin = { top: 20, right: 20, bottom: 20, left: 0 };
 
     constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, gtf_data: any) {
         this.svg = svg;
-        this.dimensions = dimensions;
+        this.dimensions = {
+            width: dimensions.width,
+            height: dimensions.height - this.margin.top - this.margin.bottom,
+            font_size: dimensions.font_size
+        };
         this.gtf_data = gtf_data;
-
-        this.da_plot_y = 0;
-        this.da_plot_height = this.dimensions.height * this.da_plot_factor;
-        this.box_plot_y = this.da_plot_height;
+    
+        this.connectors_plot_y = 0;
+        this.connectors_plot_height = this.dimensions.height * this.connectors_plot_factor;
+        this.box_plot_y = this.connectors_plot_height;
         this.box_plot_height = this.dimensions.height * this.box_plot_factor;
-
-        // Adjust dimensions to account for margins
-        this.dimensions.width -= this.margin.right;
     }
 
     public get_length(): number {
         return this.genome_length;
     }
 
+    public build_xs(): any {
+        const char_width = this.dimensions["font_size"] / 1.25;
+
+        const raw_xs: any = [];
+        const spread_xs: any = [];
+        const colors: any = [];
+
+        this.gtf_data["genome_components"].forEach(component => {
+            if (component["type"] !== "da") {
+                return;
+            }
+            const percent_position = (component["position"] / this.genome_length) * this.dimensions["width"];
+            const label_width = component["name"].length * char_width;
+            const interval_start = percent_position - label_width / 2;
+            const interval_end = percent_position + label_width / 2;
+            raw_xs.push([interval_start, interval_end]);
+            spread_xs.push([interval_start, interval_end]);
+            const da_color = component["name"][1] === "A" ? "#ff0000" : "#000000";
+            colors.push(da_color);
+        });
+
+        utils.adjustIntervals(spread_xs, 1, this.genome_length, 215);
+        return { raw_xs: raw_xs, spread_xs: spread_xs, colors: colors};
+    }
+
     public plot(): void {
         this.genome_length = this.gtf_data["genome_end"];
-        const da_dimensions = {
-            font_size: this.dimensions.font_size,
-            width: this.dimensions.width,
-            height: this.da_plot_height,
-            y: this.da_plot_y,
-        };
-
-        const donorAcceptorPlot = new DonorAcceptorPlot(this.svg, da_dimensions, this.genome_length, this.gtf_data, 200, 'bottom-up');
-        donorAcceptorPlot.plot();
-
         // Create shared y-axis for the coverage plots
         const yScale = d3.scaleLinear()
             .domain([0, 100])  // assuming 100 is the max value for the y-axis
@@ -1121,7 +1183,7 @@ export class ExpressionPlot {
             .attr("class", "grid-background")
             .attr("x", 0)
             .attr("y", this.box_plot_y)
-            .attr("width", this.dimensions.width)
+            .attr("width", this.dimensions.width-this.margin.left-this.margin.right)
             .attr("height", this.box_plot_height)
             .attr("fill", "rgba(200, 200, 200, 0.5)");
 
@@ -1131,23 +1193,35 @@ export class ExpressionPlot {
             .attr("stroke", "rgba(0, 0, 0, 0.1)")
             .attr("stroke-width", 1)
             .attr("stroke-dasharray", "5,5")
+            .attr("opacity", 0.5)
             .call(d3.axisLeft(yScale)
                 .ticks(5)
-                .tickSize(-this.dimensions.width)
+                .tickSize(-(this.dimensions.width-this.margin.left-this.margin.right))
                 .tickFormat(null));
+
 
         this.svg.append("g")
             .attr("class", "y axis")
-            .attr("transform", `translate(${this.dimensions.width},0)`)  // Shift y-axis to the right
+            .attr("transform", `translate(${this.dimensions.width-this.margin.left-this.margin.right},0)`)
             .call(yAxis);
 
         // add a shared y-axis to the boxplot area with horizontal lines across and transparent background
-        const xs = donorAcceptorPlot.get_xs();
+        const xs = this.build_xs();
+
+        // plot connectors
+        const connectors_dimensions = {
+            font_size: this.dimensions.font_size,
+            width: this.dimensions.width,
+            height: this.connectors_plot_height,
+            y: this.connectors_plot_y,
+        };
+        const connectorsPlot = new ConnectorsPlot(this.svg, connectors_dimensions, xs);
+        connectorsPlot.plot();
+
         // plot boxes at the terminations of the DA plot  
         
         let xi = 0;
         this.gtf_data["genome_components"].forEach(component => {
-            console.log(component)
             if (component["type"] === "da") {
                 const x = xs.spread_xs[xi];
                 xi+=1;
@@ -1163,6 +1237,15 @@ export class ExpressionPlot {
 
                 const coveragePlot = new CoveragePlot(this.svg, cov_dimensions, this.genome_length, [10, 20, 30, 40, 50, 60], yScale, da_color);
                 coveragePlot.plot();
+
+                // add component name below the coverage plot
+                this.svg.append('text')
+                    .attr('x', x[0] + cov_dimensions.width / 2)
+                    .attr('y', this.box_plot_y + this.box_plot_height + this.dimensions.font_size)
+                    .attr('text-anchor', 'middle')
+                    .style('fill', 'black')
+                    .style('font-size', this.dimensions.font_size + "px")
+                    .text(component["name"]);
             }
         });
     }
