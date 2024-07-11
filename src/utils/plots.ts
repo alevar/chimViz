@@ -1017,19 +1017,21 @@ export class CoveragePlot {
     private genome_length: number;
     private coverage_data: number[];
     private yScale: d3.ScaleLinear<number, number>;
+    private color: string;
 
-    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, genome_length: number, coverage_data: number[], yScale: d3.ScaleLinear<number, number>) {
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, genome_length: number, coverage_data: number[], yScale: d3.ScaleLinear<number, number>, color: string) {
         this.svg = svg;
         this.dimensions = dimensions;
         this.genome_length = genome_length;
         this.coverage_data = coverage_data;
         this.yScale = yScale;
+        this.color = color;
     }
 
     public plot(): void {
         const xScale = d3.scaleLinear()
-            .domain([0, this.coverage_data.length])
-            .range([this.dimensions.x, this.dimensions.x + this.dimensions.width]);
+            .domain([0, this.coverage_data.length-1])
+            .range([this.dimensions.x+this.dimensions.width*0.1, this.dimensions.x + this.dimensions.width*0.9]);
 
         // Define the area generator
         const area = d3.area()
@@ -1048,14 +1050,15 @@ export class CoveragePlot {
             .attr("y", this.dimensions.y)
             .attr("width", this.dimensions.width)
             .attr("height", this.dimensions.height)
-            .attr("fill", "rgba(200, 200, 200, 0.5)");
+            .attr("fill", this.color)
+            .attr('fill-opacity', 0.2);
 
         // Draw the area path
         coverageGroup.append("path")
             .datum(this.coverage_data)
             .attr("class", "coverage-area")
             .attr("d", area)
-            .attr("fill", "steelblue");
+            .attr("fill", this.color);
     }
 }
 
@@ -1140,18 +1143,27 @@ export class ExpressionPlot {
 
         // add a shared y-axis to the boxplot area with horizontal lines across and transparent background
         const xs = donorAcceptorPlot.get_xs();
-        // plot boxes at the terminations of the DA plot        
-        for (const x of xs.spread_xs) {
-            const cov_dimensions = {
-                font_size: this.dimensions.font_size,
-                width: x[1] - x[0],
-                height: this.box_plot_height,
-                y: this.box_plot_y,
-                x: x[0],
-            };
+        // plot boxes at the terminations of the DA plot  
+        
+        let xi = 0;
+        this.gtf_data["genome_components"].forEach(component => {
+            console.log(component)
+            if (component["type"] === "da") {
+                const x = xs.spread_xs[xi];
+                xi+=1;
 
-            const coveragePlot = new CoveragePlot(this.svg, cov_dimensions, this.genome_length, [10, 20, 30, 40, 50, 60], yScale);
-            coveragePlot.plot();
-        }
+                const cov_dimensions = {
+                    font_size: this.dimensions.font_size,
+                    width: x[1] - x[0],
+                    height: this.box_plot_height,
+                    y: this.box_plot_y,
+                    x: x[0],
+                };
+                const da_color = component["name"][1] === "A" ? "#ff0000" : "#000000";
+
+                const coveragePlot = new CoveragePlot(this.svg, cov_dimensions, this.genome_length, [10, 20, 30, 40, 50, 60], yScale, da_color);
+                coveragePlot.plot();
+            }
+        });
     }
 }
