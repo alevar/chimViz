@@ -5,6 +5,7 @@ import * as plots from "../../../utils/plots";
 
 interface SplicePlotData {
     gtf_data: any;
+    expression_data: any;
     width: number;
     height: number;
     fontSize: number;
@@ -62,6 +63,7 @@ export class SplicePlot {
     private height: number;
     private fontSize: number;
     private gtf_data: any = { "transcripts": [], "genome_components": [] };
+    private expression_data: any = { "donors": {}, "acceptors": {} };
 
     constructor(svgElement: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>,
         data: SplicePlotData) {
@@ -71,6 +73,7 @@ export class SplicePlot {
         this.fontSize = data.fontSize;
 
         this.gtf_data = data.gtf_data;
+        this.expression_data = data.expression_data;
 
         this.svg = svgElement;
         this.sections = {
@@ -214,10 +217,10 @@ export class SplicePlot {
             this.gtf_data);
         this.sections["transcriptPlot"]["plot"].plot();
 
-        const expression_data = [1,2,3];
         this.sections["expressionPlot"]["plot"] = new plots.ExpressionPlot(expressionPlotSvg,
             this.sections["expressionPlot"]["dimensions"],
-            this.gtf_data
+            this.gtf_data,
+            this.expression_data
         );
         this.sections["expressionPlot"]["plot"].plot();
     }

@@ -5,6 +5,7 @@ import "./SettingsPanel.css"
 
 interface SettingsPanelProps {
   onPathogenGTFUpload: (event: React.ChangeEvent<HTMLInputElement>) => void
+  onExpressionUpload: (event: React.ChangeEvent<HTMLInputElement>) => void
   fontSize: number
   onFontSizeChange: (value: number) => void
   width: number
@@ -15,6 +16,7 @@ interface SettingsPanelProps {
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onPathogenGTFUpload,
+  onExpressionUpload,
   fontSize,
   onFontSizeChange,
   width,
@@ -36,6 +38,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <Form.Group controlId="PathogenGtfUpload">
               <Form.Label>Pathogen GTF</Form.Label>
               <Form.Control type="file" onChange={onPathogenGTFUpload} />
+            </Form.Group>
+
+            <Form.Group controlId="ExpressionUpload">
+              <Form.Label>Donor/Acceptor Expression</Form.Label>
+              <Form.Control type="file" onChange={onExpressionUpload} />
             </Form.Group>
 
             {/* Font Size Section */}

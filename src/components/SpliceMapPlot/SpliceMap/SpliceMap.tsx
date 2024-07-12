@@ -5,12 +5,13 @@ import { SplicePlot } from './SplicePlot';
 
 interface SpliceMapProps {
     gtf_data: any;
+    expression_data: any;
     width: number;
     height: number;
     fontSize: number;
 }
 
-const SpliceMap: React.FC<SpliceMapProps> = ({ gtf_data, width, height, fontSize }) => {
+const SpliceMap: React.FC<SpliceMapProps> = ({ gtf_data, expression_data, width, height, fontSize }) => {
     const svgRef = useRef<SVGSVGElement | null>(null);
 
     const handleDownload = () => {
@@ -35,10 +36,10 @@ const SpliceMap: React.FC<SpliceMapProps> = ({ gtf_data, width, height, fontSize
 
         const svg = d3.select(svgRef.current);
         svg.selectAll("*").remove();
-        const chim = new SplicePlot(svg, { gtf_data, width, height, fontSize });
+        const chim = new SplicePlot(svg, { gtf_data, expression_data, width, height, fontSize });
         chim.plot();
         
-    }, [gtf_data, width, height, fontSize]);
+    }, [gtf_data, expression_data, width, height, fontSize]);
 
     return (
         <div>

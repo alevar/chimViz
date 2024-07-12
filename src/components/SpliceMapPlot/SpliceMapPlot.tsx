@@ -9,6 +9,10 @@ const SpliceMapPlot: React.FC = () => {
     transcripts: [],
     genome_components: [],
   });
+  const [expression, setExpression] = useState<any>({
+    donors: {},
+    acceptors: {},
+  });
   const [fontSize, setFontSize] = useState<number>(10);
   const [width, setWidth] = useState<number>(1400);
   const [height, setHeight] = useState<number>(700);
@@ -32,6 +36,7 @@ const SpliceMapPlot: React.FC = () => {
     <div className="splicemap-plot">
       <SettingsPanel
         onPathogenGTFUpload={(e) => handleFileUpload(e, (result) => parsers.parsePathogenGTF(result, setPathogenGTF))}
+        onExpressionUpload={(e) => handleFileUpload(e, (result) => parsers.parseExpression(result, setExpression))}
         fontSize={fontSize}
         onFontSizeChange={setFontSize}
         width={width}
@@ -42,6 +47,7 @@ const SpliceMapPlot: React.FC = () => {
       <div className="visualization-container">
         <SpliceMap
           gtf_data={pathogenGTF}
+          expression_data={expression}
           width={width}
           height={height}
           fontSize={fontSize}

@@ -80,6 +80,34 @@ export function getAttribute(attributes: string, key: string): string | null {
   
     setFai(faiMap);
   }
+
+  export function parseExpression(result: string, setExpression: React.Dispatch<React.SetStateAction<any>>) {
+    const rows = result.split("\n");
+    const donors: any = {"+": [], "-": [], ".": []};
+    const acceptors: any = {"+": [], "-": [], ".": []};
+  
+    rows.forEach((row) => {
+      const [posStr, strand, countStr, sample, daType] = row.split("\t");
+      const pos = +posStr;
+      const count = +countStr;
+  
+      if (daType === "D") {
+        // extend list to the current position
+        while (donors[strand].length <= pos+100) donors[strand].push([]);
+        donors[strand][pos].push(count);
+      }
+      if (daType === "A") {
+        // extend list to the current position
+        while (acceptors[strand].length <= pos+100) acceptors[strand].push([]);
+        acceptors[strand][pos].push(count);
+      }
+    });
+
+
+    console.log(donors, acceptors);
+  
+    setExpression({ donors, acceptors });
+  }
   
   // Function to parse Pathogen GTF data
   export function parsePathogenGTF(result: string, setPathogenGTF: React.Dispatch<React.SetStateAction<any>>) {

@@ -220,11 +220,13 @@ export class GenomePlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     private dimensions: any;
     private genome_length: number;
+    private gtf_data: any;
 
-    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, genome_length: number) {
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, genome_length: number, gtf_data: any) {
         this.svg = svg;
         this.dimensions = dimensions;
         this.genome_length = genome_length;
+        this.gtf_data = gtf_data;
     }
 
     public plot(): void {
@@ -236,6 +238,31 @@ export class GenomePlot {
             .attr('rx', this.dimensions["height"] / 2)
             .attr('ry', this.dimensions["height"] / 2)
             .style('fill', '#dddddd');
+
+        for (const component of this.gtf_data["genome_components"]) {
+            if (component["type"] === "ltr") {
+                this.svg.append('rect')
+                    .attr('x', (component["position"][0] / this.genome_length) * this.dimensions["width"])
+                    .attr('y', this.dimensions["y"])
+                    .attr('width', ((component["position"][1] - component["position"][0]) / this.genome_length) * this.dimensions["width"])
+                    .attr('height', this.dimensions["height"])
+                    .attr('rx', this.dimensions["height"] / 2)
+                    .attr('ry', this.dimensions["height"] / 2)
+                    .style('fill', '#3652AD');
+            }
+        }
+        for (const component of this.gtf_data["genome_components"]) {
+            if (component["type"] === "ltr") {
+                // add text label to the middle of the rectangle
+                this.svg.append('text')
+                    .attr('x', (component["position"][0] / this.genome_length) * this.dimensions["width"] + (((component["position"][1] - component["position"][0]) / this.genome_length) * this.dimensions["width"]) / 2)
+                    .attr('y', (this.dimensions["y"]) + (this.dimensions["height"] / 1.25))
+                    .attr('text-anchor', 'middle')
+                    .style('fill', 'white')
+                    .style('font-size', this.dimensions["font_size"] + "px")
+                    .text(component["name"]);
+            }
+        }
     }
 }
 
@@ -380,7 +407,7 @@ export class PathogenPlot {
             "height": this.genome_plot_height,
             "y": this.genome_plot_y
         };
-        const genomePlot = new GenomePlot(this.svg, genome_dimensions, this.genome_length);
+        const genomePlot = new GenomePlot(this.svg, genome_dimensions, this.genome_length, this.gtf_data);
         genomePlot.plot();
 
         const da_dimensions = {
@@ -400,6 +427,22 @@ export class PathogenPlot {
         };
         const orfPlot = new ORFPlot(this.svg, orf_dimensions, this.genome_length, this.gtf_data);
         orfPlot.plot();
+
+        // next for each of the donor/acceptor sites - draw vertical lines across all transcripts
+        Object.entries(this.gtf_data["genome_components"]).forEach(([tid, component]) => {
+            if (component["type"] !== "da") {
+                return;
+            }
+            const da_position = (component["position"] / this.genome_length) * this.dimensions["width"];
+            const da_color = component["name"][1] === "A" ? "#ff0000" : "#000000";
+            this.svg.append('line')
+                .attr('x1', da_position)
+                .attr('y1', genome_dimensions["y"])
+                .attr('x2', da_position)
+                .attr('y2', this.dimensions["height"])
+                .style('stroke', da_color)
+                .style('stroke-width', 1);
+        });
     }
 
     public plot_integrations(used_integrations: any[]): void {
@@ -468,6 +511,22 @@ export class TranscriptomePlot {
                 transcript);
             this.transcript_plots[tid].plot();
             y_pos += this.transcript_height;
+        });
+
+        // next for each of the donor/acceptor sites - draw vertical lines across all transcripts
+        Object.entries(this.gtf_data["genome_components"]).forEach(([tid, component]) => {
+            if (component["type"] !== "da") {
+                return;
+            }
+            const da_position = (component["position"] / this.genome_length) * this.dimensions["width"];
+            const da_color = component["name"][1] === "A" ? "#ff0000" : "#000000";
+            this.svg.append('line')
+                .attr('x1', da_position)
+                .attr('y1', 0)
+                .attr('x2', da_position)
+                .attr('y2', this.dimensions["transcriptome_height"])
+                .style('stroke', da_color)
+                .style('stroke-width', 1);
         });
     }
 }
@@ -1084,7 +1143,6 @@ export class ConnectorsPlot {
             const color = this.xs.colors[xi];
             const raw_midpoint = utils.computeMidpoint(raw_xs[0],raw_xs[1]);
             const spread_midpoint = utils.computeMidpoint(spread_xs[0],spread_xs[1]);
-            console.log(raw_midpoint, spread_midpoint,this.dimensions)
             
             // draw a triangle from raw_midpoint to spread interval
             this.svg.append("polygon")
@@ -1112,6 +1170,7 @@ export class ExpressionPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     private dimensions: any;
     private gtf_data: any;
+    private expression_data: any;
     private genome_length: number = 0;
 
     private connectors_plot_y: number = 0;
@@ -1124,7 +1183,7 @@ export class ExpressionPlot {
     
     private margin = { top: 20, right: 20, bottom: 20, left: 0 };
 
-    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, gtf_data: any) {
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, gtf_data: any, expression_data: any) {
         this.svg = svg;
         this.dimensions = {
             width: dimensions.width,
@@ -1132,6 +1191,7 @@ export class ExpressionPlot {
             font_size: dimensions.font_size
         };
         this.gtf_data = gtf_data;
+        this.expression_data = expression_data;
     
         this.connectors_plot_y = 0;
         this.connectors_plot_height = this.dimensions.height * this.connectors_plot_factor;
@@ -1168,7 +1228,26 @@ export class ExpressionPlot {
         return { raw_xs: raw_xs, spread_xs: spread_xs, colors: colors};
     }
 
+    public get_max_expression(strand: string): number {
+        let max_expression = 0;
+        console.log("get_max_exp", this.expression_data["donors"][strand])
+        for (const donor in this.expression_data["donors"][strand]) {
+            const vals = this.expression_data["donors"][strand][donor];
+            console.log(vals)
+            const max_val = Math.max(vals);
+            if (max_val > max_expression) {
+                max_expression = max_val;
+            }
+        }
+        return max_expression;
+    }
+
     public plot(): void {
+        // get maximum expression value
+        const max_exp = this.get_max_expression("+");
+        console.log("max_exp", max_exp);
+
+
         this.genome_length = this.gtf_data["genome_end"];
         // Create shared y-axis for the coverage plots
         const yScale = d3.scaleLinear()
@@ -1185,7 +1264,7 @@ export class ExpressionPlot {
             .attr("y", this.box_plot_y)
             .attr("width", this.dimensions.width-this.margin.left-this.margin.right)
             .attr("height", this.box_plot_height)
-            .attr("fill", "rgba(200, 200, 200, 0.5)");
+            .attr("fill", "rgba(200, 200, 200, 0.1)");
 
         // Add horizontal grid lines
         this.svg.append("g")
@@ -1193,7 +1272,7 @@ export class ExpressionPlot {
             .attr("stroke", "rgba(0, 0, 0, 0.1)")
             .attr("stroke-width", 1)
             .attr("stroke-dasharray", "5,5")
-            .attr("opacity", 0.5)
+            .attr("opacity", 0.3)
             .call(d3.axisLeft(yScale)
                 .ticks(5)
                 .tickSize(-(this.dimensions.width-this.margin.left-this.margin.right))
