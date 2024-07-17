@@ -2,6 +2,99 @@ import * as d3 from "d3";
 
 import * as utils from "./utils";
 
+export interface GridConfig {
+    columns: number;
+    columnRatios: number[];
+    rowRatiosPerColumn: number[][];
+}
+
+export class D3Grid {
+    private height: number;
+    private width: number;
+    private gridConfig: GridConfig;
+    private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
+    private cellDimensions: { width: number, height: number }[][];
+    private cellCoordinates: { x: number, y: number }[][];
+    private cellData: any[][]; // holds any data associated with each cell
+    private cellSvgs: d3.Selection<SVGGElement, unknown, HTMLElement, any>[][];
+
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, height: number, width: number, gridConfig: GridConfig) {
+        this.height = height;
+        this.width = width;
+        this.gridConfig = gridConfig;
+
+        this.cellDimensions = [];
+        this.cellCoordinates = [];
+        this.cellData = [];
+        this.cellSvgs = [];
+        this.svg = svg
+            .attr('width', this.width)
+            .attr('height', this.height);
+
+        // Setup grid
+        this.setupGrid();
+    }
+
+    private setupGrid(): void {
+        const totalColumnRatio = this.gridConfig.columnRatios.reduce((sum, ratio) => sum + ratio, 0);
+
+        let xOffset = 0;
+        this.gridConfig.columnRatios.forEach((colRatio, colIndex) => {
+            const columnWidth = (colRatio / totalColumnRatio) * this.width;
+            const totalRowRatio = this.gridConfig.rowRatiosPerColumn[colIndex].reduce((sum, ratio) => sum + ratio, 0);
+
+            this.cellDimensions[colIndex] = [];
+            this.cellCoordinates[colIndex] = [];
+            this.cellData[colIndex] = [];
+            this.cellSvgs[colIndex] = [];
+
+            let yOffset = 0;
+            this.gridConfig.rowRatiosPerColumn[colIndex].forEach((rowRatio, rowIndex) => {
+                const rowHeight = (rowRatio / totalRowRatio) * this.height;
+
+                this.cellDimensions[colIndex][rowIndex] = { width: columnWidth, height: rowHeight };
+                this.cellCoordinates[colIndex][rowIndex] = { x: xOffset, y: yOffset };
+                this.cellData[colIndex][rowIndex] = {};
+
+                const new_svg = this.svg.append('svg')
+                    .attr('x', xOffset)
+                    .attr('y', yOffset)
+                    .attr('width', columnWidth)
+                    .attr('height', rowHeight);
+                this.cellSvgs[colIndex][rowIndex] = new_svg;
+
+                yOffset += rowHeight;
+            });
+
+            xOffset += columnWidth;
+        });
+    }
+
+    public getCellData(colIndex: number, rowIndex: number): any {
+        return this.cellData[colIndex]?.[rowIndex];
+    }
+
+    public setCellData(colIndex: number, rowIndex: number, data: any): void {
+        this.cellData[colIndex][rowIndex] = data;
+    }
+
+    public getSvg(): d3.Selection<SVGSVGElement, unknown, HTMLElement, any> {
+        return this.svg;
+    }
+
+    public getCellDimensions(colIndex: number, rowIndex: number): { width: number, height: number } | undefined {
+        return this.cellDimensions[colIndex]?.[rowIndex];
+    }
+
+    public getCellCoordinates(colIndex: number, rowIndex: number): { x: number, y: number } | undefined {
+        return this.cellCoordinates[colIndex]?.[rowIndex];
+    }
+
+    public getCellSvg(colIndex: number, rowIndex: number): d3.Selection<SVGGElement, unknown, HTMLElement, any> | undefined {
+        return this.cellSvgs[colIndex]?.[rowIndex];
+    }
+}
+
 export class ConnectionsPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     private dimensions = {
@@ -143,7 +236,7 @@ export class DonorAcceptorPlot {
     }
 
     public get_xs(): any {
-        return {"raw_xs": this.raw_xs, "spread_xs": this.spread_xs};
+        return { "raw_xs": this.raw_xs, "spread_xs": this.spread_xs };
     }
 
     public plot(): void {
@@ -168,7 +261,7 @@ export class DonorAcceptorPlot {
 
                 da_i += 1;
 
-                const line_segment_xshift = (this.dimensions["height"] - this.dimensions["font_size"]*2) / 3;
+                const line_segment_xshift = (this.dimensions["height"] - this.dimensions["font_size"] * 2) / 3;
                 const ys = this.direction === 'bottom-up'
                     ? [
                         this.dimensions["y"],
@@ -184,9 +277,9 @@ export class DonorAcceptorPlot {
                     ];
 
                 const xs = [raw_da_x,
-                        raw_da_x,
-                        da_x,
-                        da_x];
+                    raw_da_x,
+                    da_x,
+                    da_x];
 
                 this.svg.append('line')
                     .attr('x1', xs[0])
@@ -391,7 +484,7 @@ export class PathogenPlot {
         this.genome_plot_y = this.orf_plot_height - this.dimensions["font_size"];
         this.genome_plot_height = this.dimensions["height"] * 0.1;
         this.da_plot_y = 0;
-        this.da_plot_height = this.genome_plot_y+this.genome_plot_height;
+        this.da_plot_height = this.genome_plot_y + this.genome_plot_height;
     }
 
     public get_length(): number {
@@ -461,6 +554,51 @@ export class PathogenPlot {
     }
 }
 
+export class GeneLabelPlot {
+    private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
+    private dimensions: any;
+    private genes: any;
+
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, genes: any) {
+        this.svg = svg;
+        this.dimensions = dimensions;
+        this.genes = genes;
+    }
+
+    private createCurlyBracePath(y0: number, y1: number): string {
+        const braceWidth = this.dimensions["width"] / 4;
+        const height = y1 - y0;
+    
+        // Scale the sample path to fit the desired height
+        const scaledPath = `
+            M 0,${y0}
+            C ${braceWidth/2},${y0} 0,${y0 + height / 2} ${braceWidth},${y0 + height / 2}
+            C 0,${y0 + height / 2} ${braceWidth/2},${y1} 0,${y1}
+            
+        `;
+        
+        return scaledPath;
+    }
+
+    public plot(): void {
+        this.genes.forEach(gene => {
+            const gene_y = gene["y"][0] + (gene["y"][1] - gene["y"][0]) / 2;
+            this.svg.append('text')
+                .attr('x', this.dimensions["width"] / 2)
+                .attr('y', gene_y)
+                .attr('text-anchor', 'middle')
+                .style('fill', 'black')
+                .style('font-size', this.dimensions["font_size"] + "px")
+                .text(gene["name"]);
+            // draw brace
+            this.svg.append('path')
+                .attr('d', this.createCurlyBracePath(gene["y"][0], gene["y"][1], gene_y))
+                .attr('stroke', 'black')
+                .attr('fill', 'none');
+        });
+    }
+}
+
 // builds a panel of all transcripts to be plotted
 // builds a panel of all transcripts to be plotted
 export class TranscriptomePlot {
@@ -469,48 +607,53 @@ export class TranscriptomePlot {
         "font_size": 0,
         "width": 0,
         "height": 0,
-        "transcriptome_height": 0,
     };
     private gtf_data: any = {};
     private genome_length: number = 0;
     private transcript_plots: Record<string, TranscriptPlot> = {};
     private transcript_height: number = 0;
 
+    private genes: any = []; // gene groups mapping gene name to upper and lower y coordinates in the plot
+
     constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>,
         dimensions: {
             "font_size": number,
             "width": number,
             "height": number,
-            "transcriptome_height": number
         },
         gtf_data: any) {
         this.svg = svg;
         this.dimensions = dimensions;
         this.gtf_data = gtf_data;
         this.genome_length = this.gtf_data["genome_end"];
-        this.transcript_height = this.dimensions["transcriptome_height"] / Object.keys(this.gtf_data["transcripts"]).length;
+        this.transcript_height = this.dimensions["height"] / Object.keys(this.gtf_data["transcripts"]).length;
+        this.genes = [];
     }
 
-    public plot(): void {
+    public plot(): [] {
         let y_pos = 0;
-        Object.entries(this.gtf_data["transcripts"]).forEach(([tid, transcript]) => {
-            const transcriptSvg = this.svg.append('svg')
-                .attr('x', 0)
-                .attr('y', y_pos)
-                .attr('width', this.dimensions["width"])
-                .attr('height', this.transcript_height);
+        Object.entries(this.gtf_data["genes"]).forEach(([gene_name, tids]) => {
+            this.genes.push({ "name": gene_name, "y": [y_pos,y_pos + tids.length*this.transcript_height] });
+            for (const tid of tids) {
+                const transcript = this.gtf_data["transcripts"][tid];
+                const transcriptSvg = this.svg.append('svg')
+                    .attr('x', 0)
+                    .attr('y', y_pos)
+                    .attr('width', this.dimensions["width"])
+                    .attr('height', this.transcript_height);
 
-            this.transcript_plots[tid] = new TranscriptPlot(transcriptSvg,
-                {
-                    "font_size": this.dimensions["font_size"],
-                    "width": this.dimensions["width"],
-                    "height": this.transcript_height,
-                },
-                this.genome_length,
-                tid,
-                transcript);
-            this.transcript_plots[tid].plot();
-            y_pos += this.transcript_height;
+                this.transcript_plots[tid] = new TranscriptPlot(transcriptSvg,
+                    {
+                        "font_size": this.dimensions["font_size"],
+                        "width": this.dimensions["width"],
+                        "height": this.transcript_height,
+                    },
+                    this.genome_length,
+                    tid,
+                    transcript);
+                this.transcript_plots[tid].plot();
+                y_pos += this.transcript_height;
+            }
         });
 
         // next for each of the donor/acceptor sites - draw vertical lines across all transcripts
@@ -524,10 +667,11 @@ export class TranscriptomePlot {
                 .attr('x1', da_position)
                 .attr('y1', 0)
                 .attr('x2', da_position)
-                .attr('y2', this.dimensions["transcriptome_height"])
+                .attr('y2', this.dimensions["height"])
                 .style('stroke', da_color)
                 .style('stroke-width', 1);
         });
+        return this.genes;
     }
 }
 
@@ -1089,8 +1233,8 @@ export class CoveragePlot {
 
     public plot(): void {
         const xScale = d3.scaleLinear()
-            .domain([0, this.coverage_data.length-1])
-            .range([this.dimensions.x+this.dimensions.width*0.1, this.dimensions.x + this.dimensions.width*0.9]);
+            .domain([0, this.coverage_data.length - 1])
+            .range([this.dimensions.x + this.dimensions.width * 0.1, this.dimensions.x + this.dimensions.width * 0.9]);
 
         // Define the area generator
         const area = d3.area()
@@ -1141,9 +1285,9 @@ export class ConnectorsPlot {
             const raw_xs = this.xs.raw_xs[xi];
             const spread_xs = this.xs.spread_xs[xi];
             const color = this.xs.colors[xi];
-            const raw_midpoint = utils.computeMidpoint(raw_xs[0],raw_xs[1]);
-            const spread_midpoint = utils.computeMidpoint(spread_xs[0],spread_xs[1]);
-            
+            const raw_midpoint = utils.computeMidpoint(raw_xs[0], raw_xs[1]);
+            const spread_midpoint = utils.computeMidpoint(spread_xs[0], spread_xs[1]);
+
             // draw a triangle from raw_midpoint to spread interval
             this.svg.append("polygon")
                 .attr("points", `${raw_midpoint},${this.dimensions.y} ${spread_xs[0]},${this.dimensions.y + this.dimensions.height} ${spread_xs[1]},${this.dimensions.y + this.dimensions.height}`)
@@ -1180,7 +1324,7 @@ export class ExpressionPlot {
 
     private connectors_plot_factor = 0.5;
     private box_plot_factor = 0.5;
-    
+
     private margin = { top: 20, right: 20, bottom: 20, left: 0 };
 
     constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, gtf_data: any, expression_data: any) {
@@ -1192,7 +1336,7 @@ export class ExpressionPlot {
         };
         this.gtf_data = gtf_data;
         this.expression_data = expression_data;
-    
+
         this.connectors_plot_y = 0;
         this.connectors_plot_height = this.dimensions.height * this.connectors_plot_factor;
         this.box_plot_y = this.connectors_plot_height;
@@ -1225,7 +1369,7 @@ export class ExpressionPlot {
         });
 
         utils.adjustIntervals(spread_xs, 1, this.genome_length, 215);
-        return { raw_xs: raw_xs, spread_xs: spread_xs, colors: colors};
+        return { raw_xs: raw_xs, spread_xs: spread_xs, colors: colors };
     }
 
     public get_max_expression(strand: string): number {
@@ -1262,7 +1406,7 @@ export class ExpressionPlot {
             .attr("class", "grid-background")
             .attr("x", 0)
             .attr("y", this.box_plot_y)
-            .attr("width", this.dimensions.width-this.margin.left-this.margin.right)
+            .attr("width", this.dimensions.width - this.margin.left - this.margin.right)
             .attr("height", this.box_plot_height)
             .attr("fill", "rgba(200, 200, 200, 0.1)");
 
@@ -1275,13 +1419,13 @@ export class ExpressionPlot {
             .attr("opacity", 0.3)
             .call(d3.axisLeft(yScale)
                 .ticks(5)
-                .tickSize(-(this.dimensions.width-this.margin.left-this.margin.right))
+                .tickSize(-(this.dimensions.width - this.margin.left - this.margin.right))
                 .tickFormat(null));
 
 
         this.svg.append("g")
             .attr("class", "y axis")
-            .attr("transform", `translate(${this.dimensions.width-this.margin.left-this.margin.right},0)`)
+            .attr("transform", `translate(${this.dimensions.width - this.margin.left - this.margin.right},0)`)
             .call(yAxis);
 
         // add a shared y-axis to the boxplot area with horizontal lines across and transparent background
@@ -1298,12 +1442,12 @@ export class ExpressionPlot {
         connectorsPlot.plot();
 
         // plot boxes at the terminations of the DA plot  
-        
+
         let xi = 0;
         this.gtf_data["genome_components"].forEach(component => {
             if (component["type"] === "da") {
                 const x = xs.spread_xs[xi];
-                xi+=1;
+                xi += 1;
 
                 const cov_dimensions = {
                     font_size: this.dimensions.font_size,

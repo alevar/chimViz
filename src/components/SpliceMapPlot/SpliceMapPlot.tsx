@@ -8,13 +8,14 @@ const SpliceMapPlot: React.FC = () => {
   const [pathogenGTF, setPathogenGTF] = useState<any>({
     transcripts: [],
     genome_components: [],
+    genes: {},
   });
   const [expression, setExpression] = useState<any>({
     donors: {},
     acceptors: {},
   });
   const [fontSize, setFontSize] = useState<number>(10);
-  const [width, setWidth] = useState<number>(1400);
+  const [width, setWidth] = useState<number>(1100);
   const [height, setHeight] = useState<number>(700);
 
   const handleFileUpload = (

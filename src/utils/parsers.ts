@@ -162,8 +162,18 @@ export function getAttribute(attributes: string, key: string): string | null {
     gtfDonors.forEach((donor, i) => genomeComponents.push({ type: "da", position: donor, name: `SD${i}` }));
     gtfAcceptors.forEach((acceptor, i) => genomeComponents.push({ type: "da", position: acceptor, name: `SA${i}` }));
     genomeComponents.sort((a, b) => a.position - b.position);
+
+    // group transcripts by gene name
+    const genes = {};
+    for (const tid in transcripts) {
+      const geneName = transcripts[tid].gene_name;
+      genes[geneName] = genes[geneName] || [];
+      genes[geneName].push(tid);
+    }
+
+    console.log(genes);
   
-    setPathogenGTF({ transcripts, genome_end: genomeEnd, genome_components: genomeComponents });
+    setPathogenGTF({ transcripts, genome_end: genomeEnd, genome_components: genomeComponents, genes });
   }
   
   // Function to parse Integrations data

@@ -1,20 +1,27 @@
 // src/App.tsx
-import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import { Spinner } from 'react-bootstrap';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import "bootstrap/dist/css/bootstrap.min.css"
+import React, { Suspense, lazy } from "react"
+import { Spinner } from "react-bootstrap"
+import {
+  Navigate,
+  Route,
+  BrowserRouter as Router,
+  Routes,
+} from "react-router-dom"
 
-import Home from './components/Home/Home';
-import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
-import Header from './components/Header/Header';
-import Footer from './components/Footer/Footer';
-import './App.css';
+import "./App.css"
+import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary"
+import Footer from "./components/Footer/Footer"
+import Header from "./components/Header/Header"
+import Home from "./components/Home/Home"
 
 // Lazy load components
-const ChimVizPlot = lazy(() => import('./components/ChimVizPlot/ChimVizPlot'));
-const SpliceMapPlot = lazy(() => import('./components/SpliceMapPlot/SpliceMapPlot'));
-const About = lazy(() => import('./components/About/About'));
-const ContactUs = lazy(() => import('./components/ContactUs/ContactUs'));
+const ChimVizPlot = lazy(() => import("./components/ChimVizPlot/ChimVizPlot"))
+const SpliceMapPlot = lazy(
+  () => import("./components/SpliceMapPlot/SpliceMapPlot"),
+)
+const About = lazy(() => import("./components/About/About"))
+const ContactUs = lazy(() => import("./components/ContactUs/ContactUs"))
 
 const LoadingSpinner: React.FC = () => (
   <div className="loading">
@@ -22,7 +29,7 @@ const LoadingSpinner: React.FC = () => (
       <span className="visually-hidden">Loading...</span>
     </Spinner>
   </div>
-);
+)
 
 const App: React.FC = () => {
   return (
@@ -46,7 +53,7 @@ const App: React.FC = () => {
         <Footer />
       </div>
     </Router>
-  );
-};
+  )
+}
 
-export default App;
+export default App
