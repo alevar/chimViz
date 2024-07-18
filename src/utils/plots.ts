@@ -232,7 +232,7 @@ export class DonorAcceptorPlot {
             this.spread_xs.push([interval_start, interval_end]);
         });
 
-        utils.adjustIntervals(this.spread_xs, 1, this.genome_length, this.spread);
+        utils.adjustIntervals(this.spread_xs, 1, this.width, this.spread);
     }
 
     public get_xs(): any {
@@ -1351,7 +1351,7 @@ export class ExpressionPlot {
         const char_width = this.dimensions["font_size"] / 1.25;
 
         const raw_xs: any = [];
-        const spread_xs: any = [];
+        let spread_xs: any = [];
         const colors: any = [];
 
         this.gtf_data["genome_components"].forEach(component => {
@@ -1368,8 +1368,8 @@ export class ExpressionPlot {
             colors.push(da_color);
         });
 
-        utils.adjustIntervals(spread_xs, 1, this.genome_length, 215);
-        return { raw_xs: raw_xs, spread_xs: spread_xs, colors: colors };
+        const new_xs = utils.adjustIntervals(spread_xs, 1, this.dimensions["width"], 215);
+        return { raw_xs: raw_xs, spread_xs: new_xs, colors: colors };
     }
 
     public get_max_expression(strand: string): number {

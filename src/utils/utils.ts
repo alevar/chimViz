@@ -125,7 +125,6 @@ type Interval = [number, number];
 // }
 
 export function adjustIntervals(intervals: Interval[], start: number, end: number, separator: number): Interval[] {
-    // Base case: when there are no intervals or only one interval
     if (intervals.length <= 1) {
         return intervals;
     }
@@ -133,86 +132,43 @@ export function adjustIntervals(intervals: Interval[], start: number, end: numbe
     // Sort intervals by their start position
     intervals.sort((a, b) => a[0] - b[0]);
 
-    // Adjust intervals so they are spread evenly to both sides
-    function spreadIntervals(intervals: Interval[], start: number, end: number): void {
-        for (let i = 1; i < intervals.length; i++) {
-            const currentInterval = intervals[i];
-            const leftNeighbor = intervals[i - 1];
+    const totalIntervals = intervals.length;
+    const totalSpace = end - start;
+    const totalIntervalWidth = intervals.reduce((acc, interval) => acc + (interval[1] - interval[0]), 0);
+    const emptyScaleFactor = (totalSpace - totalIntervalWidth) / totalSpace; // total fraction of space that is not occupied by intervals
 
-            // Calculate the required start position for the current interval
-            const requiredStart = leftNeighbor[1] + separator;
-            const overlap = requiredStart - currentInterval[0];
-
-            if (overlap > 0) {
-                // If overlap is positive, move intervals to the right
-                const shift = overlap / 2;
-
-                // Adjust current interval to the right, ensuring we don't exceed original bounds
-                if (currentInterval[1] + shift <= end) {
-                    currentInterval[0] += shift;
-                    currentInterval[1] += shift;
-                } else {
-                    const maxShift = end - currentInterval[1];
-                    currentInterval[0] += maxShift;
-                    currentInterval[1] += maxShift;
-                }
-
-                // Adjust left neighbor to the left, ensuring we don't go below original start
-                if (leftNeighbor[0] - shift >= start) {
-                    leftNeighbor[0] -= shift;
-                    leftNeighbor[1] -= shift;
-                } else {
-                    const maxShift = leftNeighbor[0] - start;
-                    leftNeighbor[0] -= maxShift;
-                    leftNeighbor[1] -= maxShift;
-                }
-            }
-        }
+    // compute intervals between interval median points
+    let negativeIntervals = [[0,0]];
+    for (let i = 0; i < totalIntervals; i++) {
+        const midpoint = computeMidpoint(intervals[i][0], intervals[i][1]);
+        negativeIntervals[negativeIntervals.length - 1][1] = midpoint;
+        negativeIntervals.push([midpoint,end]);
     }
 
-    spreadIntervals(intervals, start, end);
-
-    // Function to balance intervals and ensure no overlap in reverse order
-    function balanceIntervals(intervals: Interval[], start: number, end: number): void {
-        for (let i = intervals.length - 2; i >= 0; i--) {
-            const currentInterval = intervals[i];
-            const rightNeighbor = intervals[i + 1];
-
-            // Calculate the required end position for the current interval
-            const requiredEnd = rightNeighbor[0] - separator;
-            const overlap = currentInterval[1] - requiredEnd;
-
-            if (overlap > 0) {
-                // If overlap is positive, move intervals to the left
-                const shift = overlap / 2;
-
-                // Adjust current interval to the left, ensuring we don't exceed original bounds
-                if (currentInterval[0] - shift >= start) {
-                    currentInterval[0] -= shift;
-                    currentInterval[1] -= shift;
-                } else {
-                    const maxShift = currentInterval[0] - start;
-                    currentInterval[0] -= maxShift;
-                    currentInterval[1] -= maxShift;
-                }
-
-                // Adjust right neighbor to the right, ensuring we don't exceed original end
-                if (rightNeighbor[1] + shift <= end) {
-                    rightNeighbor[0] += shift;
-                    rightNeighbor[1] += shift;
-                } else {
-                    const maxShift = end - rightNeighbor[1];
-                    rightNeighbor[0] += maxShift;
-                    rightNeighbor[1] += maxShift;
-                }
-            }
-        }
+    // compute scaled width of spacers
+    let scaledSpacerWidths = [];
+    for (let i = 0; i < negativeIntervals.length; i++) {
+        const interval = negativeIntervals[i];
+        const intervalWidth = interval[1] - interval[0];
+        const scaledWidth = intervalWidth * emptyScaleFactor;
+        scaledSpacerWidths.push(scaledWidth);
     }
 
-    balanceIntervals(intervals, start, end);
-
-    return intervals;
+    // compute positions of original intervals separated by scaled spacers
+    let new_intervals = [];
+    let prev_end = start;
+    for (let i = 0; i < totalIntervals; i++) {
+        const interval = intervals[i];
+        const intervalWidth = interval[1] - interval[0];
+        const spacer = scaledSpacerWidths[i];
+        const new_interval = [prev_end+spacer, prev_end + spacer + intervalWidth];
+        prev_end = new_interval[1];
+        new_intervals.push(new_interval);
+    }
+    
+    return new_intervals;
 }
+
 
 export function computeMidpoint(a: number, b: number): number {
     // Ensure a is less than b
