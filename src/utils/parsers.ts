@@ -81,33 +81,57 @@ export function getAttribute(attributes: string, key: string): string | null {
     setFai(faiMap);
   }
 
-  export function parseExpression(result: string, setExpression: React.Dispatch<React.SetStateAction<any>>) {
+  type Expression = {
+    pos: number;
+    cov: [];
+    donor: { "+": []; "-": []; ".": [] };
+    acceptor: { "+": []; "-": []; ".": [] };
+  };
+  
+  export function parseExpression(
+    result: string,
+    setExpression: React.Dispatch<React.SetStateAction<Expression[]>>
+  ) {
     const rows = result.split("\n");
-    const donors: any = {"+": [], "-": [], ".": []};
-    const acceptors: any = {"+": [], "-": [], ".": []};
-  
+    const expressions: Expression[] = [];
+    
     rows.forEach((row) => {
-      const [posStr, strand, countStr, sample, daType] = row.split("\t");
-      const pos = +posStr;
-      const count = +countStr;
+      const [seqid, posStr, covStr, sample, dpStr, dmStr, dnStr, apStr, amStr, anStr] = row.split("\t");
+      // skip if the row is not data
+      if (isNaN(parseInt(posStr, 10))) {
+        return;
+      }
+      const pos = parseInt(posStr, 10);
+      const cov = parseFloat(covStr);
+      const dp = parseFloat(dpStr);
+      const dm = parseFloat(dmStr);
+      const dn = parseFloat(dnStr);
+      const ap = parseFloat(apStr);
+      const am = parseFloat(amStr);
+      const an = parseFloat(anStr);
   
-      if (daType === "D") {
-        // extend list to the current position
-        while (donors[strand].length <= pos+100) donors[strand].push([]);
-        donors[strand][pos].push(count);
+      // Ensure the expressions array is long enough to accommodate the position
+      while (expressions.length <= pos+1) {
+        expressions.push({
+          pos: expressions.length,
+          cov: [],
+          donor: { "+": [], "-": [], ".": [] },
+          acceptor: { "+": [], "-": [], ".": [] },
+        });
       }
-      if (daType === "A") {
-        // extend list to the current position
-        while (acceptors[strand].length <= pos+100) acceptors[strand].push([]);
-        acceptors[strand][pos].push(count);
-      }
+      
+      expressions[pos].cov.push(cov);
+      expressions[pos].donor["+"].push(dp);
+      expressions[pos].donor["-"].push(dm);
+      expressions[pos].donor["."].push(dn);
+      expressions[pos].acceptor["+"].push(ap);
+      expressions[pos].acceptor["-"].push(am);
+      expressions[pos].acceptor["."].push(an);
     });
-
-
-    console.log(donors, acceptors);
   
-    setExpression({ donors, acceptors });
+    setExpression(expressions);
   }
+  
   
   // Function to parse Pathogen GTF data
   export function parsePathogenGTF(result: string, setPathogenGTF: React.Dispatch<React.SetStateAction<any>>) {

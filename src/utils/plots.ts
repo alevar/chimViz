@@ -1232,39 +1232,105 @@ export class CoveragePlot {
     }
 
     public plot(): void {
+        console.log("coverage", this.coverage_data);
+        
         const xScale = d3.scaleLinear()
             .domain([0, this.coverage_data.length - 1])
-            .range([this.dimensions.x + this.dimensions.width * 0.1, this.dimensions.x + this.dimensions.width * 0.9]);
-
-        // Define the area generator
-        const area = d3.area()
-            .x((d, i) => xScale(i))
-            .y0(this.dimensions.y + this.dimensions.height)
-            .y1(d => this.yScale(d))
-            .curve(d3.curveLinear);
-
-        // Append the coverage plot group
+            .range([this.dimensions.x, this.dimensions.x + this.dimensions.width]);
+    
+        const yScale = d3.scaleLinear()
+            .domain([0, d3.max(this.coverage_data, d => d3.max(d.val.map((val, i) => val / d.cov[i]))!)])
+            .range([this.dimensions.y + this.dimensions.height, this.dimensions.y]);
+    
         const coverageGroup = this.svg.append("g")
             .attr("transform", `translate(0,0)`);
-
-        // draw rectangle to highlight plot
+    
         coverageGroup.append("rect")
             .attr("x", this.dimensions.x)
             .attr("y", this.dimensions.y)
             .attr("width", this.dimensions.width)
             .attr("height", this.dimensions.height)
             .attr("fill", this.color)
-            .attr("fill-opacity", 0.2)  // Opacity of the triangle
-            .attr("stroke", this.color)  // Color of the triangle lines
-            .attr("stroke-opacity", 0.3)  // Opacity of the triangle
-            .attr("stroke-width", 1);  // Width of the triangle lines
-
-        // Draw the area path
+            .attr("fill-opacity", 0.05)
+            .attr("stroke", this.color)
+            .attr("stroke-opacity", 0.15)
+            .attr("stroke-width", 1);
+    
+        // Compute the statistics for each position
+        const stats = this.coverage_data.map(data => {
+            const ratios = data.val.map((val, i) => val / data.cov[i]);
+            ratios.sort((a, b) => a - b);
+    
+            const median = d3.median(ratios)!;
+            const q1 = d3.quantile(ratios, 0.25)!;
+            const q3 = d3.quantile(ratios, 0.75)!;
+            const iqr = q3 - q1;
+            const lowerWhisker = Math.max(Math.min(...ratios.filter(d => d >= (q1 - 1.5 * iqr))), d3.min(ratios)!);
+            const upperWhisker = Math.min(Math.max(...ratios.filter(d => d <= (q3 + 1.5 * iqr))), d3.max(ratios)!);
+    
+            return { median, q1, q3, lowerWhisker, upperWhisker };
+        });
+    
+        // Define the area generator for the IQR
+        const areaIQR = d3.area()
+            .x((d, i) => xScale(i))
+            .y0(d => yScale(d.q1))
+            .y1(d => yScale(d.q3))
+            .curve(d3.curveLinear);
+    
+        const whiskersArea = d3.area()
+            .x((d, i) => xScale(i))
+            .y0(d => yScale(d.lowerWhisker))
+            .y1(d => yScale(d.upperWhisker))
+            .curve(d3.curveLinear);
+    
+        const medianLine = d3.line()
+            .x((d, i) => xScale(i))
+            .y(d => yScale(d.median))
+            .curve(d3.curveLinear);
+    
+        // Draw the IQR area
         coverageGroup.append("path")
-            .datum(this.coverage_data)
-            .attr("class", "coverage-area")
-            .attr("d", area)
-            .attr("fill", this.color);
+            .datum(stats)
+            .attr("class", "area-iqr")
+            .attr("d", areaIQR)
+            .attr("fill", this.color)
+            .attr("fill-opacity", 0.5);
+    
+        // Draw the whiskers area
+        coverageGroup.append("path")
+            .datum(stats)
+            .attr("class", "whiskers-area")
+            .attr("d", whiskersArea)
+            .attr("fill", this.color)
+            .attr("fill-opacity", 0.2);
+    
+        // Draw the median line
+        coverageGroup.append("path")
+            .datum(stats)
+            .attr("class", "median-line")
+            .attr("d", medianLine)
+            .attr("stroke", this.color)
+            .attr("stroke-width", 1)
+            .attr("fill", "none");
+
+        // Add x-axis with ticks for start and end coordinates
+        const xAxis = d3.axisBottom(xScale)
+            .ticks(2)
+            .tickValues([0, this.coverage_data.length - 1])
+            .tickFormat((d, i) => i === 0 ? this.coverage_data[0].pos : this.coverage_data[this.coverage_data.length - 1].pos);
+
+        const xAxisGroup = coverageGroup.append("g")
+            .attr("transform", `translate(0,${this.dimensions.y + this.dimensions.height})`)
+            .call(xAxis);
+
+        // Rotate the x-axis labels
+        xAxisGroup.selectAll("text")
+            .attr("transform", "rotate(-90)")
+            .attr("x", -9)
+            .attr("y", 0)
+            .attr("dy", ".35em")
+            .style("text-anchor", "end");
     }
 }
 
@@ -1293,9 +1359,9 @@ export class ConnectorsPlot {
                 .attr("points", `${raw_midpoint},${this.dimensions.y} ${spread_xs[0]},${this.dimensions.y + this.dimensions.height} ${spread_xs[1]},${this.dimensions.y + this.dimensions.height}`)
                 .attr("fill", "none")  // No fill for the triangle
                 .attr("fill", color)  // Color of the triangle lines
-                .attr("fill-opacity", 0.2)  // Opacity of the triangle
+                .attr("fill-opacity", 0.05)  // Opacity of the triangle
                 .attr("stroke", color)  // Color of the triangle lines
-                .attr("stroke-opacity", 0.3)  // Opacity of the triangle
+                .attr("stroke-opacity", 0.15)  // Opacity of the triangle
                 .attr("stroke-width", 1);  // Width of the triangle lines
 
             // Plot the line connecting raw_midpoint to spread_midpoint
@@ -1372,30 +1438,49 @@ export class ExpressionPlot {
         return { raw_xs: raw_xs, spread_xs: new_xs, colors: colors };
     }
 
-    public get_max_expression(strand: string): number {
-        let max_expression = 0;
-        console.log("get_max_exp", this.expression_data["donors"][strand])
-        for (const donor in this.expression_data["donors"][strand]) {
-            const vals = this.expression_data["donors"][strand][donor];
-            console.log(vals)
-            const max_val = Math.max(vals);
-            if (max_val > max_expression) {
-                max_expression = max_val;
+    public get_max_fraction(strand: string): number {
+        let max_fraction = 0;
+        for (const vals of this.expression_data) {
+            for (let i = 0; i < vals["cov"].length; i++) {
+                const cov = vals["cov"][i];
+                let max_val = vals["donor"][strand][i]/cov;
+                if (max_val > max_fraction) {
+                    max_fraction = max_val;
+                }
+                max_val = vals["acceptor"][strand][i]/cov;
+                if (max_val > max_fraction) {
+                    max_fraction = max_val;
+                }
+            }
+            if (max_fraction>1){
+                console.log("max_fraction", max_fraction,vals);
             }
         }
-        return max_expression;
+        return max_fraction;
+    }
+
+    public subsetExpression(pos:Number,spread:Number,acceptor:boolean): any {
+        let res = [];
+        for (const vals of this.expression_data.slice(pos+256-spread,pos+256+spread)) {
+            if (acceptor) {
+                res.push({pos:vals["pos"],cov:vals["cov"],val:vals["acceptor"]["+"]});
+            }
+            else {
+                res.push({pos:vals["pos"],cov:vals["cov"],val:vals["donor"]["+"]});
+            }
+        }
+        return res;
     }
 
     public plot(): void {
         // get maximum expression value
-        const max_exp = this.get_max_expression("+");
-        console.log("max_exp", max_exp);
-
+        const max_frac = this.get_max_fraction("+");
+        console.log("max_frac", max_frac);
 
         this.genome_length = this.gtf_data["genome_end"];
         // Create shared y-axis for the coverage plots
         const yScale = d3.scaleLinear()
-            .domain([0, 100])  // assuming 100 is the max value for the y-axis
+            .domain([0, max_frac])  // assuming 100 is the max value for the y-axis
             .range([this.box_plot_y + this.box_plot_height, this.box_plot_y]);
 
         const yAxis = d3.axisRight(yScale)
@@ -1458,7 +1543,9 @@ export class ExpressionPlot {
                 };
                 const da_color = component["name"][1] === "A" ? "#ff0000" : "#000000";
 
-                const coveragePlot = new CoveragePlot(this.svg, cov_dimensions, this.genome_length, [10, 20, 30, 40, 50, 60], yScale, da_color);
+                const sub_cov = this.subsetExpression(component["position"],5,component["name"][1] === "A");
+
+                const coveragePlot = new CoveragePlot(this.svg, cov_dimensions, this.genome_length, sub_cov, yScale, da_color);
                 coveragePlot.plot();
 
                 // add component name below the coverage plot

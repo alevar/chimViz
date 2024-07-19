@@ -19,7 +19,9 @@ export class SplicePlot {
     private height: number;
     private fontSize: number;
     private gtf_data: any = { "transcripts": [], "genome_components": [] };
-    private expression_data: any = { "donors": {}, "acceptors": {} };
+    private expression_data: any = [{"cov":Number,
+                                    "donor":{"+": Number, "-": Number, ".": Number},
+                                    "acceptor":{"+": Number, "-": Number, ".": Number}}];
     private gridConfig: plots.GridConfig = {
         columns: 3,
         columnRatios: [0.8, 0.1, 0.1], // plot, labels, legend
