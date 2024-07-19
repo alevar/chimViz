@@ -1315,6 +1315,9 @@ export class CoveragePlot {
             .attr("fill", "none");
 
         // Add x-axis with ticks for start and end coordinates
+        if (this.coverage_data.length === 0) {
+            return;
+        }
         const xAxis = d3.axisBottom(xScale)
             .ticks(2)
             .tickValues([0, this.coverage_data.length - 1])
@@ -1414,7 +1417,7 @@ export class ExpressionPlot {
     }
 
     public build_xs(): any {
-        const char_width = this.dimensions["font_size"] / 1.25;
+        const char_width = this.dimensions["font_size"]/0.9;
 
         const raw_xs: any = [];
         let spread_xs: any = [];
