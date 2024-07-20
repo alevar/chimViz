@@ -1249,7 +1249,7 @@ export class CoveragePlot {
             .attr("width", this.dimensions.width)
             .attr("height", this.dimensions.height)
             .attr("fill", this.color)
-            .attr("fill-opacity", 0.05)
+            .attr("fill-opacity", 0.025)
             .attr("stroke", this.color)
             .attr("stroke-opacity", 0.15)
             .attr("stroke-width", 1);
@@ -1293,7 +1293,7 @@ export class CoveragePlot {
             .attr("class", "area-iqr")
             .attr("d", areaIQR)
             .attr("fill", this.color)
-            .attr("fill-opacity", 0.5);
+            .attr("fill-opacity", 0.25);
     
         // Draw the whiskers area
         coverageGroup.append("path")
@@ -1301,7 +1301,7 @@ export class CoveragePlot {
             .attr("class", "whiskers-area")
             .attr("d", whiskersArea)
             .attr("fill", this.color)
-            .attr("fill-opacity", 0.2);
+            .attr("fill-opacity", 0.1);
     
         // Draw the median line
         coverageGroup.append("path")
@@ -1360,7 +1360,7 @@ export class ConnectorsPlot {
                 .attr("points", `${raw_midpoint},${this.dimensions.y} ${spread_xs[0]},${this.dimensions.y + this.dimensions.height} ${spread_xs[1]},${this.dimensions.y + this.dimensions.height}`)
                 .attr("fill", "none")  // No fill for the triangle
                 .attr("fill", color)  // Color of the triangle lines
-                .attr("fill-opacity", 0.05)  // Opacity of the triangle
+                .attr("fill-opacity", 0.025)  // Opacity of the triangle
                 .attr("stroke", color)  // Color of the triangle lines
                 .attr("stroke-opacity", 0.15)  // Opacity of the triangle
                 .attr("stroke-width", 1);  // Width of the triangle lines
@@ -1407,8 +1407,8 @@ export class BedPlot {
         const averagesData = this.calculateAverages();
 
         // Create the x-axis scale
-        const xScale = d3.scaleBand()
-            .domain(averagesData.map(d => d.pos.toString()))
+        const xScale = d3.scaleLinear()
+            .domain([256, this.expressions.length - 1])
             .range([0, this.dimensions.width]);
 
         // Create the y-axis scale
@@ -1422,14 +1422,23 @@ export class BedPlot {
             .attr("transform", `translate(${this.dimensions.x},0)`)
             .call(yAxis);
 
+        // Add the x-axis
+        const xAxis = d3.axisBottom(xScale).ticks(5).tickFormat('');
+        this.svg.append("g")
+            .attr("transform", `translate(0,${this.dimensions.y + this.dimensions.height})`)
+            .call(xAxis);
+
+        // Plot bars to the average points
+        const barWidth = 5;
+
         this.svg.selectAll(".bar")
             .data(averagesData)
             .enter()
             .append("rect")
             .attr("class", "bar")
-            .attr("x", d => xScale(d.pos.toString())!)
+            .attr("x", (d, i) => xScale(i) - barWidth / 2)
             .attr("y", d => yScale(d.average))
-            .attr("width", 5)
+            .attr("width", barWidth)
             .attr("height", d => this.dimensions.y + this.dimensions.height - yScale(d.average))
             .attr("fill", "black");
     }
@@ -1454,13 +1463,11 @@ export class ExpressionPlot {
     private connectors_plot_factor = 0.3;
     private box_plot_factor = 0.5;
 
-    private margin = { top: 20, right: 20, bottom: 20, left: 0 };
-
     constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, genome_length: Number, data: any, expression_data: any) {
         this.svg = svg;
         this.dimensions = {
             width: dimensions.width,
-            height: dimensions.height - this.margin.top - this.margin.bottom,
+            height: dimensions.height,
             font_size: dimensions.font_size
         };
         this.data = data;
@@ -1482,7 +1489,7 @@ export class ExpressionPlot {
     }
 
     public build_xs(): any {
-        const char_width = this.dimensions["font_size"]/0.9;
+        const char_width = this.dimensions["font_size"]/0.5;
 
         const raw_xs: any = [];
         let spread_xs: any = [];
@@ -1545,7 +1552,7 @@ export class ExpressionPlot {
             .attr("class", "grid-background")
             .attr("x", 0)
             .attr("y", this.box_plot_y)
-            .attr("width", this.dimensions.width - this.margin.left - this.margin.right)
+            .attr("width", this.dimensions.width)
             .attr("height", this.box_plot_height)
             .attr("fill", "rgba(200, 200, 200, 0.1)");
 
@@ -1558,13 +1565,13 @@ export class ExpressionPlot {
             .attr("opacity", 0.3)
             .call(d3.axisLeft(yScale)
                 .ticks(5)
-                .tickSize(-(this.dimensions.width - this.margin.left - this.margin.right))
+                .tickSize(-(this.dimensions.width))
                 .tickFormat(null));
 
 
         this.svg.append("g")
             .attr("class", "y axis")
-            .attr("transform", `translate(${this.dimensions.width - this.margin.left - this.margin.right},0)`)
+            .attr("transform", `translate(${this.dimensions.width},0)`)
             .call(yAxis);
 
         // plot bedgraph
@@ -1573,6 +1580,7 @@ export class ExpressionPlot {
             width: this.dimensions.width,
             height: this.bed_plot_height,
             y: this.bed_plot_y,
+            x: this.dimensions.x,
         };
         const bedPlot = new BedPlot(this.svg, bed_dimensions, this.expression_data);
         bedPlot.plot();
