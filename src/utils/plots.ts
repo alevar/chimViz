@@ -6,6 +6,14 @@ export interface GridConfig {
     columns: number;
     columnRatios: number[];
     rowRatiosPerColumn: number[][];
+    padding: Padding;
+}
+
+export interface Padding {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
 }
 
 export class D3Grid {
@@ -16,9 +24,14 @@ export class D3Grid {
     private cellDimensions: { width: number, height: number }[][];
     private cellCoordinates: { x: number, y: number }[][];
     private cellData: any[][]; // holds any data associated with each cell
-    private cellSvgs: d3.Selection<SVGGElement, unknown, HTMLElement, any>[][];
+    private cellSvgs: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>[][];
 
-    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, height: number, width: number, gridConfig: GridConfig) {
+    constructor(
+        svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, 
+        height: number, 
+        width: number, 
+        gridConfig: GridConfig
+    ) {
         this.height = height;
         this.width = width;
         this.gridConfig = gridConfig;
@@ -52,7 +65,10 @@ export class D3Grid {
             this.gridConfig.rowRatiosPerColumn[colIndex].forEach((rowRatio, rowIndex) => {
                 const rowHeight = (rowRatio / totalRowRatio) * this.height;
 
-                this.cellDimensions[colIndex][rowIndex] = { width: columnWidth, height: rowHeight };
+                const paddedWidth = columnWidth - this.gridConfig.padding.left - this.gridConfig.padding.right;
+                const paddedHeight = rowHeight - this.gridConfig.padding.top - this.gridConfig.padding.bottom;
+
+                this.cellDimensions[colIndex][rowIndex] = { width: paddedWidth, height: paddedHeight };
                 this.cellCoordinates[colIndex][rowIndex] = { x: xOffset, y: yOffset };
                 this.cellData[colIndex][rowIndex] = {};
 
@@ -60,7 +76,8 @@ export class D3Grid {
                     .attr('x', xOffset)
                     .attr('y', yOffset)
                     .attr('width', columnWidth)
-                    .attr('height', rowHeight);
+                    .attr('height', rowHeight)
+                    .attr('viewBox', `${-this.gridConfig.padding.left} ${-this.gridConfig.padding.top} ${columnWidth} ${rowHeight}`);
                 this.cellSvgs[colIndex][rowIndex] = new_svg;
 
                 yOffset += rowHeight;
@@ -87,13 +104,21 @@ export class D3Grid {
     }
 
     public getCellCoordinates(colIndex: number, rowIndex: number): { x: number, y: number } | undefined {
-        return this.cellCoordinates[colIndex]?.[rowIndex];
+        const coordinates = this.cellCoordinates[colIndex]?.[rowIndex];
+        if (coordinates) {
+            return {
+                x: coordinates.x + this.gridConfig.padding.left,
+                y: coordinates.y + this.gridConfig.padding.top
+            };
+        }
+        return undefined;
     }
 
-    public getCellSvg(colIndex: number, rowIndex: number): d3.Selection<SVGGElement, unknown, HTMLElement, any> | undefined {
+    public getCellSvg(colIndex: number, rowIndex: number): d3.Selection<SVGSVGElement, unknown, HTMLElement, any> | undefined {
         return this.cellSvgs[colIndex]?.[rowIndex];
     }
 }
+
 
 export class ConnectionsPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
@@ -1327,13 +1352,21 @@ export class CoveragePlot {
 
         // Rotate the x-axis labels
         xAxisGroup.selectAll("text")
-            .attr("transform", "rotate(-90)")
-            .attr("x", -9)
-            .attr("y", 0)
-            .attr("dy", ".35em")
+            .attr("transform", "rotate(-45)")
+            .attr("x", -10)
+            .attr("y", 10)
             .style("text-anchor", "end");
+
+        // Add x-axis label
+        coverageGroup.append("text")
+            .attr("x", this.dimensions.x + this.dimensions.width / 2)
+            .attr("y", this.dimensions.y + this.dimensions.height + 40)
+            .attr("text-anchor", "middle")
+            .style("font-size", "12px")
+            .text("Position");
     }
 }
+
 
 // plots connector triangles from a point to a box
 export class ConnectorsPlot {
@@ -1463,6 +1496,8 @@ export class ExpressionPlot {
     private connectors_plot_factor = 0.3;
     private box_plot_factor = 0.5;
 
+    private yAxis: d3.Axis<d3.AxisDomain>;
+
     constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, genome_length: Number, data: any, expression_data: any) {
         this.svg = svg;
         this.dimensions = {
@@ -1535,6 +1570,10 @@ export class ExpressionPlot {
         return res;
     }
 
+    public get_yAxis() {
+        return this.yAxis;
+    }
+
     public plot(): void {
         // get maximum expression value
         const max_frac = this.get_max_fraction();
@@ -1546,6 +1585,7 @@ export class ExpressionPlot {
 
         const yAxis = d3.axisRight(yScale)
             .ticks(5);
+        this.yAxis = yAxis;
 
         // Add a background rectangle for the grid
         this.svg.append("rect")
@@ -1567,12 +1607,6 @@ export class ExpressionPlot {
                 .ticks(5)
                 .tickSize(-(this.dimensions.width))
                 .tickFormat(null));
-
-
-        this.svg.append("g")
-            .attr("class", "y axis")
-            .attr("transform", `translate(${this.dimensions.width},0)`)
-            .call(yAxis);
 
         // plot bedgraph
         const bed_dimensions = {
