@@ -84,16 +84,16 @@ export function getAttribute(attributes: string, key: string): string | null {
   type Expression = {
     pos: number;
     cov: [];
-    donor: { "+": []; "-": []; ".": [] };
-    acceptor: { "+": []; "-": []; ".": [] };
+    val: [];
   };
   
   export function parseExpression(
     result: string,
-    setExpression: React.Dispatch<React.SetStateAction<Expression[]>>
+    setExpression: React.Dispatch<React.SetStateAction<any>>
   ) {
     const rows = result.split("\n");
-    const expressions: Expression[] = [];
+    const expressions_donors: Expression[] = [];
+    const expressions_acceptors: Expression[] = [];
     
     rows.forEach((row) => {
       const [seqid, posStr, covStr, sample, dpStr, dmStr, dnStr, apStr, amStr, anStr] = row.split("\t");
@@ -104,32 +104,24 @@ export function getAttribute(attributes: string, key: string): string | null {
       const pos = parseInt(posStr, 10);
       const cov = parseFloat(covStr);
       const dp = parseFloat(dpStr);
-      const dm = parseFloat(dmStr);
-      const dn = parseFloat(dnStr);
       const ap = parseFloat(apStr);
-      const am = parseFloat(amStr);
-      const an = parseFloat(anStr);
   
       // Ensure the expressions array is long enough to accommodate the position
-      while (expressions.length <= pos+1) {
-        expressions.push({
-          pos: expressions.length,
-          cov: [],
-          donor: { "+": [], "-": [], ".": [] },
-          acceptor: { "+": [], "-": [], ".": [] },
-        });
+      while (expressions_donors.length <= pos+1) {
+        expressions_donors.push({pos: 0,cov: [],val: [],});
+        expressions_acceptors.push({pos: 0,cov: [],val: [],});
       }
       
-      expressions[pos].cov.push(cov);
-      expressions[pos].donor["+"].push(dp);
-      expressions[pos].donor["-"].push(dm);
-      expressions[pos].donor["."].push(dn);
-      expressions[pos].acceptor["+"].push(ap);
-      expressions[pos].acceptor["-"].push(am);
-      expressions[pos].acceptor["."].push(an);
+      expressions_donors[pos].pos = pos;
+      expressions_donors[pos].cov.push(cov);
+      expressions_donors[pos].val.push(dp);
+
+      expressions_acceptors[pos].pos = pos;
+      expressions_acceptors[pos].cov.push(cov);
+      expressions_acceptors[pos].val.push(ap);
     });
   
-    setExpression(expressions);
+    setExpression({'donors': expressions_donors, 'acceptors': expressions_acceptors});
   }
   
   

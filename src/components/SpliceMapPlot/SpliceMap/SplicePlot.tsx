@@ -19,15 +19,20 @@ export class SplicePlot {
     private height: number;
     private fontSize: number;
     private gtf_data: any = { "transcripts": [], "genome_components": [] };
-    private expression_data: any = [{"cov":Number,
-                                    "donor":{"+": Number, "-": Number, ".": Number},
-                                    "acceptor":{"+": Number, "-": Number, ".": Number}}];
+    private expression_data: any = {"donors":[{"pos": Number,
+                                               "cov": [],
+                                               "vals": []}],
+                                     "acceptors":[{
+                                        "pos": Number,
+                                        "cov": [],
+                                        "vals": []}]
+                                     };
     private gridConfig: plots.GridConfig = {
         columns: 3,
         columnRatios: [0.8, 0.1, 0.1], // plot, labels, legend
         rowRatiosPerColumn: [
-            [0.2, 0.5, 0.3], // 3 rows: pathogen, transcriptome, expression
-            [0.2, 0.5, 0.3], // 3 rows: pathogen, transcriptome, expression
+            [0.1, 0.5, 0.2, 0.2], // 3 rows: pathogen, transcriptome, donor expression, acceptor expression
+            [0.1, 0.5, 0.2, 0.2], // 3 rows: pathogen, transcriptome, donor expression, acceptor expression
             [1], // 1 row: legend
         ]
     };
@@ -100,19 +105,54 @@ export class SplicePlot {
         }
 
 
-        const expressionPlotSvg = this.grid.getCellSvg(0, 2);
-        if (expressionPlotSvg) {
+        console.log(this.expression_data);
+        const donorExpressionPlotSvg = this.grid.getCellSvg(0, 2);
+        if (donorExpressionPlotSvg) {
             const dimensions = this.grid.getCellDimensions(0, 2);
 
-            const expressionPlotDimensions = {
+            const donorExpressionPlotDimensions = {
                 width: dimensions.width,
                 height: dimensions.height,
                 font_size: this.fontSize,
             };
 
-            const expressionPlot = new plots.ExpressionPlot(expressionPlotSvg, expressionPlotDimensions, this.gtf_data, this.expression_data);
-            this.grid.setCellData(0, 2, expressionPlot);
-            expressionPlot.plot();
+            // extract donors from gtf_data
+            const donors = [];
+            this.gtf_data["genome_components"].forEach(component => {
+                if (component["type"] === "da") {
+                    if (component["name"].startsWith("SD")) {
+                        donors.push(component);
+                    }
+                }
+            });
+
+            const donorExpressionPlot = new plots.ExpressionPlot(donorExpressionPlotSvg, donorExpressionPlotDimensions, this.gtf_data["genome_end"], donors, this.expression_data.donors);
+            this.grid.setCellData(0, 2, donorExpressionPlot);
+            donorExpressionPlot.plot();
+        }
+
+        const acceptorExpressionPlotSvg = this.grid.getCellSvg(0, 3);
+        if (acceptorExpressionPlotSvg) {
+            const dimensions = this.grid.getCellDimensions(0, 3);
+
+            const acceptorExpressionPlotDimensions = {
+                width: dimensions.width,
+                height: dimensions.height,
+                font_size: this.fontSize,
+            };
+
+            const acceptors = [];
+            this.gtf_data["genome_components"].forEach(component => {
+                if (component["type"] === "da") {
+                    if (component["name"].startsWith("SA")) {
+                        acceptors.push(component);
+                    }
+                }
+            });
+
+            const acceptorExpressionPlot = new plots.ExpressionPlot(acceptorExpressionPlotSvg, acceptorExpressionPlotDimensions, this.gtf_data["genome_end"], acceptors, this.expression_data.acceptors);
+            this.grid.setCellData(0, 3, acceptorExpressionPlot);
+            acceptorExpressionPlot.plot();
         }
     }
 }

@@ -1232,8 +1232,6 @@ export class CoveragePlot {
     }
 
     public plot(): void {
-        console.log("coverage", this.coverage_data);
-        
         const xScale = d3.scaleLinear()
             .domain([0, this.coverage_data.length - 1])
             .range([this.dimensions.x, this.dimensions.x + this.dimensions.width]);
@@ -1379,36 +1377,103 @@ export class ConnectorsPlot {
     }
 }
 
+// plots a set of values across coordinates from bed format
+export class BedPlot {
+    private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
+    private dimensions: { x: number; y: number; width: number; height: number };
+    private expressions: Array<{ pos: number; cov: number[]; val: number[] }>;
+
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: { x: number; y: number; width: number; height: number }, expressions: Array<{ pos: number; cov: number[]; val: number[] }>) {
+        this.svg = svg;
+        this.dimensions = dimensions;
+        this.expressions = expressions;
+    }
+
+    private calculateAverages() {
+        return this.expressions.map(exp => {
+            const ratios = exp.cov.map((cov, i) => exp.val[i] / cov);
+            const average = d3.mean(ratios) ?? 0;
+            return { pos: exp.pos, average };
+        });
+    }
+
+    public plot(): void {
+        if (this.expressions.length === 0) {
+            console.error("No expressions provided.");
+            return;
+        }
+
+        // Calculate averages
+        const averagesData = this.calculateAverages();
+
+        // Create the x-axis scale
+        const xScale = d3.scaleBand()
+            .domain(averagesData.map(d => d.pos.toString()))
+            .range([0, this.dimensions.width]);
+
+        // Create the y-axis scale
+        const yScale = d3.scaleLinear()
+            .domain([0, d3.max(averagesData, d => d.average) ?? 0])
+            .range([this.dimensions.y + this.dimensions.height, this.dimensions.y]);
+
+        // Add the y-axis
+        const yAxis = d3.axisLeft(yScale).ticks(5);
+        this.svg.append("g")
+            .attr("transform", `translate(${this.dimensions.x},0)`)
+            .call(yAxis);
+
+        this.svg.selectAll(".bar")
+            .data(averagesData)
+            .enter()
+            .append("rect")
+            .attr("class", "bar")
+            .attr("x", d => xScale(d.pos.toString())!)
+            .attr("y", d => yScale(d.average))
+            .attr("width", 5)
+            .attr("height", d => this.dimensions.y + this.dimensions.height - yScale(d.average))
+            .attr("fill", "black");
+    }
+}
+
 export class ExpressionPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     private dimensions: any;
-    private gtf_data: any;
+    private data: any;
     private expression_data: any;
     private genome_length: number = 0;
+
+    private bed_plot_y: number = 0;
+    private bed_plot_height: number = 0;
 
     private connectors_plot_y: number = 0;
     private connectors_plot_height: number = 0;
     private box_plot_y: number = 0;
     private box_plot_height: number = 0;
 
-    private connectors_plot_factor = 0.5;
+    private bed_plot_factor = 0.2;
+    private connectors_plot_factor = 0.3;
     private box_plot_factor = 0.5;
 
     private margin = { top: 20, right: 20, bottom: 20, left: 0 };
 
-    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, gtf_data: any, expression_data: any) {
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, genome_length: Number, data: any, expression_data: any) {
         this.svg = svg;
         this.dimensions = {
             width: dimensions.width,
             height: dimensions.height - this.margin.top - this.margin.bottom,
             font_size: dimensions.font_size
         };
-        this.gtf_data = gtf_data;
+        this.data = data;
         this.expression_data = expression_data;
+        this.genome_length = genome_length;
 
-        this.connectors_plot_y = 0;
+        this.bed_plot_y = 0;
+        this.bed_plot_height = this.dimensions.height * this.bed_plot_factor
+
+        this.connectors_plot_y = this.bed_plot_height;
         this.connectors_plot_height = this.dimensions.height * this.connectors_plot_factor;
-        this.box_plot_y = this.connectors_plot_height;
+
+        this.box_plot_y = this.bed_plot_height + this.connectors_plot_height;
         this.box_plot_height = this.dimensions.height * this.box_plot_factor;
     }
 
@@ -1423,10 +1488,7 @@ export class ExpressionPlot {
         let spread_xs: any = [];
         const colors: any = [];
 
-        this.gtf_data["genome_components"].forEach(component => {
-            if (component["type"] !== "da") {
-                return;
-            }
+        this.data.forEach(component => {
             const percent_position = (component["position"] / this.genome_length) * this.dimensions["width"];
             const label_width = component["name"].length * char_width;
             const interval_start = percent_position - label_width / 2;
@@ -1441,16 +1503,12 @@ export class ExpressionPlot {
         return { raw_xs: raw_xs, spread_xs: new_xs, colors: colors };
     }
 
-    public get_max_fraction(strand: string): number {
+    public get_max_fraction(): number {
         let max_fraction = 0;
         for (const vals of this.expression_data) {
             for (let i = 0; i < vals["cov"].length; i++) {
                 const cov = vals["cov"][i];
-                let max_val = vals["donor"][strand][i]/cov;
-                if (max_val > max_fraction) {
-                    max_fraction = max_val;
-                }
-                max_val = vals["acceptor"][strand][i]/cov;
+                let max_val = vals["val"][i]/cov;
                 if (max_val > max_fraction) {
                     max_fraction = max_val;
                 }
@@ -1465,22 +1523,15 @@ export class ExpressionPlot {
     public subsetExpression(pos:Number,spread:Number,acceptor:boolean): any {
         let res = [];
         for (const vals of this.expression_data.slice(pos+256-spread,pos+256+spread)) {
-            if (acceptor) {
-                res.push({pos:vals["pos"],cov:vals["cov"],val:vals["acceptor"]["+"]});
-            }
-            else {
-                res.push({pos:vals["pos"],cov:vals["cov"],val:vals["donor"]["+"]});
-            }
+            res.push({pos:vals["pos"],cov:vals["cov"],val:vals["val"]});
         }
         return res;
     }
 
     public plot(): void {
         // get maximum expression value
-        const max_frac = this.get_max_fraction("+");
-        console.log("max_frac", max_frac);
+        const max_frac = this.get_max_fraction();
 
-        this.genome_length = this.gtf_data["genome_end"];
         // Create shared y-axis for the coverage plots
         const yScale = d3.scaleLinear()
             .domain([0, max_frac])  // assuming 100 is the max value for the y-axis
@@ -1516,6 +1567,16 @@ export class ExpressionPlot {
             .attr("transform", `translate(${this.dimensions.width - this.margin.left - this.margin.right},0)`)
             .call(yAxis);
 
+        // plot bedgraph
+        const bed_dimensions = {
+            font_size: this.dimensions.font_size,
+            width: this.dimensions.width,
+            height: this.bed_plot_height,
+            y: this.bed_plot_y,
+        };
+        const bedPlot = new BedPlot(this.svg, bed_dimensions, this.expression_data);
+        bedPlot.plot();
+
         // add a shared y-axis to the boxplot area with horizontal lines across and transparent background
         const xs = this.build_xs();
 
@@ -1532,7 +1593,7 @@ export class ExpressionPlot {
         // plot boxes at the terminations of the DA plot  
 
         let xi = 0;
-        this.gtf_data["genome_components"].forEach(component => {
+        this.data.forEach(component => {
             if (component["type"] === "da") {
                 const x = xs.spread_xs[xi];
                 xi += 1;
