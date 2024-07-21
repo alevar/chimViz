@@ -35,7 +35,7 @@ export class SplicePlot {
             [1], // 1 row: legend
         ],
         padding: {
-            top: 0,
+            top: 10,
             right: 0,
             bottom: 10,
             left: 0
@@ -131,15 +131,25 @@ export class SplicePlot {
                 }
             });
 
-            const donorExpressionPlot = new plots.ExpressionPlot(donorExpressionPlotSvg, donorExpressionPlotDimensions, this.gtf_data["genome_end"], donors, this.expression_data.donors);
+            const donorExpressionPlot = new plots.ExpressionPlot(donorExpressionPlotSvg, donorExpressionPlotDimensions, this.gtf_data["genome_end"], donors, this.expression_data.donors,"#000000");
             this.grid.setCellData(0, 3, donorExpressionPlot);
             donorExpressionPlot.plot();
-            const donor_yAxis = donorExpressionPlot.get_yAxis();
+            const donor_yScale = donorExpressionPlot.get_yScale();
+            const donor_yAxis = d3.axisRight(donor_yScale)
+                .ticks(5);
             const donorYAxisPlotSvg = this.grid.getCellSvg(1, 3);
             donorYAxisPlotSvg.append("g")
                 .attr("class", "y axis")
                 .attr("transform", `translate(0,0)`)
                 .call(donor_yAxis);
+
+            const donorBed_yScale = donorExpressionPlot.get_bed_yScale();
+            const donorBedYAxisPlotSvg = this.grid.getCellSvg(1, 3);
+            const donorBed_yAxis = d3.axisRight(donorBed_yScale).ticks(2);
+            donorBedYAxisPlotSvg.append("g")
+                .attr("class", "y axis")
+                .attr("transform", `translate(0,0)`)
+                .call(donorBed_yAxis);
         }
 
         const acceptorExpressionPlotSvg = this.grid.getCellSvg(0, 5);
@@ -161,15 +171,25 @@ export class SplicePlot {
                 }
             });
 
-            const acceptorExpressionPlot = new plots.ExpressionPlot(acceptorExpressionPlotSvg, acceptorExpressionPlotDimensions, this.gtf_data["genome_end"], acceptors, this.expression_data.acceptors);
+            const acceptorExpressionPlot = new plots.ExpressionPlot(acceptorExpressionPlotSvg, acceptorExpressionPlotDimensions, this.gtf_data["genome_end"], acceptors, this.expression_data.acceptors, "#ff0000");
             this.grid.setCellData(0, 5, acceptorExpressionPlot);
             acceptorExpressionPlot.plot();
-            const acceptor_yAxis = acceptorExpressionPlot.get_yAxis();
+            const acceptor_yScale = acceptorExpressionPlot.get_yScale();
+            const acceptor_yAxis = d3.axisRight(acceptor_yScale)
+                .ticks(5);
             const acceptorYAxisPlotSvg = this.grid.getCellSvg(1, 5);
             acceptorYAxisPlotSvg.append("g")
                 .attr("class", "y axis")
                 .attr("transform", `translate(0,0)`)
                 .call(acceptor_yAxis);
+
+            const acceptorBed_yScale = acceptorExpressionPlot.get_bed_yScale();
+            const acceptorBedYAxisPlotSvg = this.grid.getCellSvg(1, 5);
+            const acceptorBed_yAxis = d3.axisRight(acceptorBed_yScale).ticks(2);
+            acceptorBedYAxisPlotSvg.append("g")
+                .attr("class", "y axis")
+                .attr("transform", `translate(0,0)`)
+                .call(acceptorBed_yAxis);
         }
     }
 }

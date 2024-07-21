@@ -1373,11 +1373,13 @@ export class ConnectorsPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     private dimensions: any;
     private xs: any;
+    private color: string = "#000000";
 
-    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, xs: any) {
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, xs: any, color: string) {
         this.svg = svg;
         this.dimensions = dimensions;
         this.xs = xs;
+        this.color = color;
     }
 
     public plot(): void {
@@ -1394,7 +1396,7 @@ export class ConnectorsPlot {
                 .attr("fill", "none")  // No fill for the triangle
                 .attr("fill", color)  // Color of the triangle lines
                 .attr("fill-opacity", 0.025)  // Opacity of the triangle
-                .attr("stroke", color)  // Color of the triangle lines
+                .attr("stroke", this.color)  // Color of the triangle lines
                 .attr("stroke-opacity", 0.15)  // Opacity of the triangle
                 .attr("stroke-width", 1);  // Width of the triangle lines
 
@@ -1404,8 +1406,9 @@ export class ConnectorsPlot {
                 .attr("y1", this.dimensions.y)
                 .attr("x2", spread_midpoint)
                 .attr("y2", this.dimensions.y + this.dimensions.height)
-                .attr("stroke", color)  // Color of the line
-                .attr("stroke-width", 1);  // Width of the line
+                .attr("stroke", this.color)  // Color of the line
+                .attr("stroke-width", 1)  // Width of the line
+                .attr("stroke-dasharray", "5,5");
         }
     }
 }
@@ -1415,11 +1418,19 @@ export class BedPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     private dimensions: { x: number; y: number; width: number; height: number };
     private expressions: Array<{ pos: number; cov: number[]; val: number[] }>;
+    private yScale: d3.ScaleLinear<number, number>;
+    private color: string;
 
-    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: { x: number; y: number; width: number; height: number }, expressions: Array<{ pos: number; cov: number[]; val: number[] }>) {
+    constructor(
+        svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, 
+        dimensions: { x: number; y: number; width: number; height: number }, 
+        expressions: Array<{ pos: number; cov: number[]; val: number[] }>,
+        color: string) {
         this.svg = svg;
         this.dimensions = dimensions;
         this.expressions = expressions;
+        this.yScale = d3.scaleLinear();
+        this.color = color;
     }
 
     private calculateAverages() {
@@ -1430,50 +1441,69 @@ export class BedPlot {
         });
     }
 
+    public get_yScale(): d3.ScaleLinear<number, number> {
+        return this.yScale;
+    }
+
     public plot(): void {
         if (this.expressions.length === 0) {
             console.error("No expressions provided.");
             return;
         }
-
+    
         // Calculate averages
         const averagesData = this.calculateAverages();
-
+    
         // Create the x-axis scale
         const xScale = d3.scaleLinear()
             .domain([256, this.expressions.length - 1])
             .range([0, this.dimensions.width]);
-
+    
         // Create the y-axis scale
-        const yScale = d3.scaleLinear()
+        this.yScale = d3.scaleLinear()
             .domain([0, d3.max(averagesData, d => d.average) ?? 0])
             .range([this.dimensions.y + this.dimensions.height, this.dimensions.y]);
-
-        // Add the y-axis
-        const yAxis = d3.axisLeft(yScale).ticks(5);
-        this.svg.append("g")
-            .attr("transform", `translate(${this.dimensions.x},0)`)
-            .call(yAxis);
-
+    
         // Add the x-axis
         const xAxis = d3.axisBottom(xScale).ticks(5).tickFormat('');
         this.svg.append("g")
             .attr("transform", `translate(0,${this.dimensions.y + this.dimensions.height})`)
             .call(xAxis);
-
+    
+        // Add a background rectangle for the grid
+        this.svg.append("rect")
+            .attr("class", "grid-background")
+            .attr("x", 0)
+            .attr("y", this.dimensions.y)
+            .attr("width", this.dimensions.width)
+            .attr("height", this.dimensions.height)
+            .attr("fill", "rgba(200, 200, 200, 0.1)");
+    
+        // Add horizontal grid lines
+        this.svg.append("g")
+            .attr("class", "grid")
+            .attr("stroke", "rgba(0, 0, 0, 0.1)")
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "5,5")
+            .attr("opacity", 0.3)
+            .call(d3.axisLeft(this.yScale)
+                .ticks(2)
+                .tickSize(-this.dimensions.width)
+                .tickFormat(null));
+    
         // Plot bars to the average points
         const barWidth = 5;
-
+    
         this.svg.selectAll(".bar")
             .data(averagesData)
             .enter()
             .append("rect")
             .attr("class", "bar")
             .attr("x", (d, i) => xScale(i) - barWidth / 2)
-            .attr("y", d => yScale(d.average))
+            .attr("y", d => this.yScale(d.average))
             .attr("width", barWidth)
-            .attr("height", d => this.dimensions.y + this.dimensions.height - yScale(d.average))
-            .attr("fill", "black");
+            .attr("height", d => this.dimensions.y + this.dimensions.height - this.yScale(d.average))
+            .attr("fill", this.color);
     }
 }
 
@@ -1483,6 +1513,8 @@ export class ExpressionPlot {
     private data: any;
     private expression_data: any;
     private genome_length: number = 0;
+
+    private color = "black";
 
     private bed_plot_y: number = 0;
     private bed_plot_height: number = 0;
@@ -1496,9 +1528,10 @@ export class ExpressionPlot {
     private connectors_plot_factor = 0.3;
     private box_plot_factor = 0.5;
 
-    private yAxis: d3.Axis<d3.AxisDomain>;
+    private yScale: d3.ScaleLinear<number, number>;
+    private bed_yScale: d3.ScaleLinear<number, number>;
 
-    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, genome_length: Number, data: any, expression_data: any) {
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, genome_length: Number, data: any, expression_data: any, color: string) {
         this.svg = svg;
         this.dimensions = {
             width: dimensions.width,
@@ -1509,6 +1542,8 @@ export class ExpressionPlot {
         this.expression_data = expression_data;
         this.genome_length = genome_length;
 
+        this.color = color;
+
         this.bed_plot_y = 0;
         this.bed_plot_height = this.dimensions.height * this.bed_plot_factor
 
@@ -1517,6 +1552,9 @@ export class ExpressionPlot {
 
         this.box_plot_y = this.bed_plot_height + this.connectors_plot_height;
         this.box_plot_height = this.dimensions.height * this.box_plot_factor;
+
+        this.yScale = d3.scaleLinear();
+        this.bed_yScale = d3.scaleLinear();
     }
 
     public get_length(): number {
@@ -1537,8 +1575,6 @@ export class ExpressionPlot {
             const interval_end = percent_position + label_width / 2;
             raw_xs.push([interval_start, interval_end]);
             spread_xs.push([interval_start, interval_end]);
-            const da_color = component["name"][1] === "A" ? "#ff0000" : "#000000";
-            colors.push(da_color);
         });
 
         const new_xs = utils.adjustIntervals(spread_xs, 1, this.dimensions["width"], 215);
@@ -1562,7 +1598,7 @@ export class ExpressionPlot {
         return max_fraction;
     }
 
-    public subsetExpression(pos:Number,spread:Number,acceptor:boolean): any {
+    public subsetExpression(pos:Number,spread:Number): any {
         let res = [];
         for (const vals of this.expression_data.slice(pos+256-spread,pos+256+spread)) {
             res.push({pos:vals["pos"],cov:vals["cov"],val:vals["val"]});
@@ -1570,8 +1606,11 @@ export class ExpressionPlot {
         return res;
     }
 
-    public get_yAxis() {
-        return this.yAxis;
+    public get_yScale() {
+        return this.yScale;
+    }
+    public get_bed_yScale() {
+        return this.bed_yScale;
     }
 
     public plot(): void {
@@ -1579,13 +1618,9 @@ export class ExpressionPlot {
         const max_frac = this.get_max_fraction();
 
         // Create shared y-axis for the coverage plots
-        const yScale = d3.scaleLinear()
+        this.yScale = d3.scaleLinear()
             .domain([0, max_frac])  // assuming 100 is the max value for the y-axis
             .range([this.box_plot_y + this.box_plot_height, this.box_plot_y]);
-
-        const yAxis = d3.axisRight(yScale)
-            .ticks(5);
-        this.yAxis = yAxis;
 
         // Add a background rectangle for the grid
         this.svg.append("rect")
@@ -1603,7 +1638,7 @@ export class ExpressionPlot {
             .attr("stroke-width", 1)
             .attr("stroke-dasharray", "5,5")
             .attr("opacity", 0.3)
-            .call(d3.axisLeft(yScale)
+            .call(d3.axisLeft(this.yScale)
                 .ticks(5)
                 .tickSize(-(this.dimensions.width))
                 .tickFormat(null));
@@ -1616,8 +1651,9 @@ export class ExpressionPlot {
             y: this.bed_plot_y,
             x: this.dimensions.x,
         };
-        const bedPlot = new BedPlot(this.svg, bed_dimensions, this.expression_data);
+        const bedPlot = new BedPlot(this.svg, bed_dimensions, this.expression_data, this.color);
         bedPlot.plot();
+        this.bed_yScale = bedPlot.get_yScale();
 
         // add a shared y-axis to the boxplot area with horizontal lines across and transparent background
         const xs = this.build_xs();
@@ -1629,7 +1665,7 @@ export class ExpressionPlot {
             height: this.connectors_plot_height,
             y: this.connectors_plot_y,
         };
-        const connectorsPlot = new ConnectorsPlot(this.svg, connectors_dimensions, xs);
+        const connectorsPlot = new ConnectorsPlot(this.svg, connectors_dimensions, xs, this.color);
         connectorsPlot.plot();
 
         // plot boxes at the terminations of the DA plot  
@@ -1647,11 +1683,10 @@ export class ExpressionPlot {
                     y: this.box_plot_y,
                     x: x[0],
                 };
-                const da_color = component["name"][1] === "A" ? "#ff0000" : "#000000";
 
-                const sub_cov = this.subsetExpression(component["position"],5,component["name"][1] === "A");
+                const sub_cov = this.subsetExpression(component["position"],5);
 
-                const coveragePlot = new CoveragePlot(this.svg, cov_dimensions, this.genome_length, sub_cov, yScale, da_color);
+                const coveragePlot = new CoveragePlot(this.svg, cov_dimensions, this.genome_length, sub_cov, this.yScale, this.color);
                 coveragePlot.plot();
 
                 // add component name below the coverage plot
