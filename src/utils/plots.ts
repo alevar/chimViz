@@ -6,7 +6,7 @@ export interface GridConfig {
     columns: number;
     columnRatios: number[];
     rowRatiosPerColumn: number[][];
-    padding: Padding;
+    cellPadding: Padding[][];
 }
 
 export interface Padding {
@@ -21,6 +21,7 @@ export class D3Grid {
     private width: number;
     private gridConfig: GridConfig;
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
+    private cellDimensions_raw: { width: number, height: number }[][];
     private cellDimensions: { width: number, height: number }[][];
     private cellCoordinates: { x: number, y: number }[][];
     private cellData: any[][]; // holds any data associated with each cell
@@ -36,6 +37,7 @@ export class D3Grid {
         this.width = width;
         this.gridConfig = gridConfig;
 
+        this.cellDimensions_raw = [];
         this.cellDimensions = [];
         this.cellCoordinates = [];
         this.cellData = [];
@@ -56,6 +58,7 @@ export class D3Grid {
             const columnWidth = (colRatio / totalColumnRatio) * this.width;
             const totalRowRatio = this.gridConfig.rowRatiosPerColumn[colIndex].reduce((sum, ratio) => sum + ratio, 0);
 
+            this.cellDimensions_raw[colIndex] = [];
             this.cellDimensions[colIndex] = [];
             this.cellCoordinates[colIndex] = [];
             this.cellData[colIndex] = [];
@@ -64,10 +67,12 @@ export class D3Grid {
             let yOffset = 0;
             this.gridConfig.rowRatiosPerColumn[colIndex].forEach((rowRatio, rowIndex) => {
                 const rowHeight = (rowRatio / totalRowRatio) * this.height;
+                const padding = this.gridConfig.cellPadding[colIndex][rowIndex];
 
-                const paddedWidth = columnWidth - this.gridConfig.padding.left - this.gridConfig.padding.right;
-                const paddedHeight = rowHeight - this.gridConfig.padding.top - this.gridConfig.padding.bottom;
+                const paddedWidth = columnWidth - padding.left - padding.right;
+                const paddedHeight = rowHeight - padding.top - padding.bottom;
 
+                this.cellDimensions_raw[colIndex][rowIndex] = { width: columnWidth, height: rowHeight };
                 this.cellDimensions[colIndex][rowIndex] = { width: paddedWidth, height: paddedHeight };
                 this.cellCoordinates[colIndex][rowIndex] = { x: xOffset, y: yOffset };
                 this.cellData[colIndex][rowIndex] = {};
@@ -77,7 +82,7 @@ export class D3Grid {
                     .attr('y', yOffset)
                     .attr('width', columnWidth)
                     .attr('height', rowHeight)
-                    .attr('viewBox', `${-this.gridConfig.padding.left} ${-this.gridConfig.padding.top} ${columnWidth} ${rowHeight}`);
+                    .attr('viewBox', `${-padding.left} ${-padding.top} ${columnWidth} ${rowHeight}`);
                 this.cellSvgs[colIndex][rowIndex] = new_svg;
 
                 yOffset += rowHeight;
@@ -103,12 +108,16 @@ export class D3Grid {
         return this.cellDimensions[colIndex]?.[rowIndex];
     }
 
+    public getCellCoordinates_unpadded(colIndex: number, rowIndex: number): { x: number, y: number } | undefined {
+        return this.cellCoordinates[colIndex]?.[rowIndex];
+    }
+
     public getCellCoordinates(colIndex: number, rowIndex: number): { x: number, y: number } | undefined {
         const coordinates = this.cellCoordinates[colIndex]?.[rowIndex];
         if (coordinates) {
             return {
-                x: coordinates.x + this.gridConfig.padding.left,
-                y: coordinates.y + this.gridConfig.padding.top
+                x: coordinates.x + this.gridConfig.cellPadding[colIndex][rowIndex].left,
+                y: coordinates.y + this.gridConfig.cellPadding[colIndex][rowIndex].top
             };
         }
         return undefined;
@@ -117,8 +126,34 @@ export class D3Grid {
     public getCellSvg(colIndex: number, rowIndex: number): d3.Selection<SVGSVGElement, unknown, HTMLElement, any> | undefined {
         return this.cellSvgs[colIndex]?.[rowIndex];
     }
-}
 
+    public createOverlaySvg(colIndex: number, rowIndices: number[]): d3.Selection<SVGSVGElement, unknown, HTMLElement, any> {
+        // Determine the combined height and position based on the rows to be combined
+        const combinedHeight = rowIndices.reduce((sum, rowIndex) => sum + this.cellDimensions_raw[colIndex][rowIndex].height, 0);
+        const firstRowIndex = rowIndices[0];
+        const firstCellCoords = this.getCellCoordinates_unpadded(colIndex, firstRowIndex);
+
+        const combinedWidth = this.cellDimensions[colIndex][firstRowIndex].width
+
+        // Create a new SVG for the overlay
+        const overlaySvg = this.svg.append('svg')
+            .attr('x', firstCellCoords?.x)
+            .attr('y', firstCellCoords?.y)
+            .attr('width', combinedWidth)
+            .attr('height', combinedHeight)
+            .attr('viewBox', `${-this.gridConfig.cellPadding[colIndex][firstRowIndex].left} ${-this.gridConfig.cellPadding[colIndex][firstRowIndex].top} ${combinedWidth} ${combinedHeight}`)
+            .style('pointer-events', 'none'); // Make sure the overlay doesn't block interactions with underlying SVGs
+    
+        return overlaySvg;
+    }
+
+    public promote(colIndex: number, rowIndex: number): void {
+        const cellSvg = this.getCellSvg(colIndex, rowIndex);
+        if (cellSvg) {
+            cellSvg.raise();
+        }
+    }
+}
 
 export class ConnectionsPlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
@@ -449,14 +484,14 @@ export class ORFPlot {
                     .attr('x', cds_start)
                     .attr('y', orf_y)
                     .attr('height', orf_height)
-                    .style('fill', '#FE7A36');
+                    .style('fill', '#F2C14E');
 
                 if (c_i === orf["orf"].length - 1) {
                     cur_seg.attr('width', (cds_end - cds_start) - 10);
                     const trianglePoints = `${cds_end - 10},${orf_y + orf_height} ${cds_end - 10},${orf_y} ${cds_end},${orf_y + orf_height / 2}`;
                     orfSvg.append('polygon')
                         .attr('points', trianglePoints)
-                        .style('fill', '#FE7A36');
+                        .style('fill', '#F2C14E');
                 } else {
                     cur_seg.attr('width', (cds_end - cds_start));
                 }
@@ -545,22 +580,6 @@ export class PathogenPlot {
         };
         const orfPlot = new ORFPlot(this.svg, orf_dimensions, this.genome_length, this.gtf_data);
         orfPlot.plot();
-
-        // next for each of the donor/acceptor sites - draw vertical lines across all transcripts
-        Object.entries(this.gtf_data["genome_components"]).forEach(([tid, component]) => {
-            if (component["type"] !== "da") {
-                return;
-            }
-            const da_position = (component["position"] / this.genome_length) * this.dimensions["width"];
-            const da_color = component["name"][1] === "A" ? "#ff0000" : "#000000";
-            this.svg.append('line')
-                .attr('x1', da_position)
-                .attr('y1', genome_dimensions["y"])
-                .attr('x2', da_position)
-                .attr('y2', this.dimensions["height"])
-                .style('stroke', da_color)
-                .style('stroke-width', 1);
-        });
     }
 
     public plot_integrations(used_integrations: any[]): void {
@@ -680,22 +699,6 @@ export class TranscriptomePlot {
                 y_pos += this.transcript_height;
             }
         });
-
-        // next for each of the donor/acceptor sites - draw vertical lines across all transcripts
-        Object.entries(this.gtf_data["genome_components"]).forEach(([tid, component]) => {
-            if (component["type"] !== "da") {
-                return;
-            }
-            const da_position = (component["position"] / this.genome_length) * this.dimensions["width"];
-            const da_color = component["name"][1] === "A" ? "#ff0000" : "#000000";
-            this.svg.append('line')
-                .attr('x1', da_position)
-                .attr('y1', 0)
-                .attr('x2', da_position)
-                .attr('y2', this.dimensions["height"])
-                .style('stroke', da_color)
-                .style('stroke-width', 1);
-        });
         return this.genes;
     }
 }
@@ -745,7 +748,7 @@ class TranscriptPlot {
                 .attr('y', this.dimensions["height"] * ((1 - 0.5) / 2))
                 .attr('width', (exon_end - exon_start))
                 .attr('height', this.dimensions["height"] * 0.5)
-                .style('fill', '#3652AD');
+                .style('fill', '#4A88CA');
             this.exon_svgs.push(exonSvg);
 
             // Draw introns
@@ -774,7 +777,7 @@ class TranscriptPlot {
                 .attr('y', this.dimensions["height"] * ((1 - 0.75) / 2))
                 .attr('width', (cds_end - cds_start))
                 .attr('height', this.dimensions["height"] * 0.75)
-                .style('fill', '#FE7A36');
+                .style('fill', '#F2C14E');
             this.cds_svgs.push(cdsSvg);
         });
     }
@@ -1243,11 +1246,11 @@ export class CoveragePlot {
     private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>;
     private dimensions: any;
     private genome_length: number;
-    private coverage_data: number[];
+    private coverage_data: {pos: number, cov: number[], val: number[]}[];
     private yScale: d3.ScaleLinear<number, number>;
     private color: string;
 
-    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, genome_length: number, coverage_data: number[], yScale: d3.ScaleLinear<number, number>, color: string) {
+    constructor(svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, any>, dimensions: any, genome_length: number, coverage_data: {pos: number, cov: number[], val: number[]}[], yScale: d3.ScaleLinear<number, number>, color: string) {
         this.svg = svg;
         this.dimensions = dimensions;
         this.genome_length = genome_length;
@@ -1260,82 +1263,80 @@ export class CoveragePlot {
         const xScale = d3.scaleLinear()
             .domain([0, this.coverage_data.length - 1])
             .range([this.dimensions.x, this.dimensions.x + this.dimensions.width]);
-    
+
         const yScale = d3.scaleLinear()
             .domain([0, d3.max(this.coverage_data, d => d3.max(d.val.map((val, i) => val / d.cov[i]))!)])
             .range([this.dimensions.y + this.dimensions.height, this.dimensions.y]);
-    
+
         const coverageGroup = this.svg.append("g")
             .attr("transform", `translate(0,0)`);
-    
+
         coverageGroup.append("rect")
             .attr("x", this.dimensions.x)
             .attr("y", this.dimensions.y)
             .attr("width", this.dimensions.width)
             .attr("height", this.dimensions.height)
             .attr("fill", this.color)
-            .attr("fill-opacity", 0.025)
+            .attr("fill-opacity", 0.1)
             .attr("stroke", this.color)
-            .attr("stroke-opacity", 0.15)
+            .attr("stroke-opacity", 0.5)
             .attr("stroke-width", 1);
-    
+
         // Compute the statistics for each position
         const stats = this.coverage_data.map(data => {
             const ratios = data.val.map((val, i) => val / data.cov[i]);
             ratios.sort((a, b) => a - b);
-    
+
             const median = d3.median(ratios)!;
             const q1 = d3.quantile(ratios, 0.25)!;
             const q3 = d3.quantile(ratios, 0.75)!;
             const iqr = q3 - q1;
             const lowerWhisker = Math.max(Math.min(...ratios.filter(d => d >= (q1 - 1.5 * iqr))), d3.min(ratios)!);
             const upperWhisker = Math.min(Math.max(...ratios.filter(d => d <= (q3 + 1.5 * iqr))), d3.max(ratios)!);
-    
+
             return { median, q1, q3, lowerWhisker, upperWhisker };
         });
-    
-        // Define the area generator for the IQR
-        const areaIQR = d3.area()
-            .x((d, i) => xScale(i))
-            .y0(d => yScale(d.q1))
-            .y1(d => yScale(d.q3))
-            .curve(d3.curveLinear);
-    
-        const whiskersArea = d3.area()
-            .x((d, i) => xScale(i))
-            .y0(d => yScale(d.lowerWhisker))
-            .y1(d => yScale(d.upperWhisker))
-            .curve(d3.curveLinear);
-    
-        const medianLine = d3.line()
-            .x((d, i) => xScale(i))
-            .y(d => yScale(d.median))
-            .curve(d3.curveLinear);
-    
-        // Draw the IQR area
-        coverageGroup.append("path")
-            .datum(stats)
-            .attr("class", "area-iqr")
-            .attr("d", areaIQR)
-            .attr("fill", this.color)
-            .attr("fill-opacity", 0.25);
-    
-        // Draw the whiskers area
-        coverageGroup.append("path")
-            .datum(stats)
-            .attr("class", "whiskers-area")
-            .attr("d", whiskersArea)
-            .attr("fill", this.color)
-            .attr("fill-opacity", 0.1);
-    
-        // Draw the median line
-        coverageGroup.append("path")
-            .datum(stats)
-            .attr("class", "median-line")
-            .attr("d", medianLine)
-            .attr("stroke", this.color)
-            .attr("stroke-width", 1)
-            .attr("fill", "none");
+
+        // Draw box plots for each position
+        const boxWidth = (this.dimensions.width / this.coverage_data.length) * 0.8; // Box width as 80% of available space
+
+        stats.forEach((stat, i) => {
+            const x = xScale(i) - boxWidth / 2;
+
+            // Draw whiskers
+            coverageGroup.append("line")
+                .attr("x1", xScale(i))
+                .attr("y1", yScale(stat.lowerWhisker))
+                .attr("x2", xScale(i))
+                .attr("y2", yScale(stat.q1))
+                .attr("stroke", "black");
+
+            coverageGroup.append("line")
+                .attr("x1", xScale(i))
+                .attr("y1", yScale(stat.upperWhisker))
+                .attr("x2", xScale(i))
+                .attr("y2", yScale(stat.q3))
+                .attr("stroke", "black");
+
+            // Draw box
+            coverageGroup.append("rect")
+                .attr("x", x)
+                .attr("y", yScale(stat.q3))
+                .attr("width", boxWidth)
+                .attr("height", yScale(stat.q1) - yScale(stat.q3))
+                .attr("fill", this.color)
+                .attr("fill-opacity", 0.5)
+                .attr("stroke", "black");
+
+            // Draw median line
+            coverageGroup.append("line")
+                .attr("x1", x)
+                .attr("y1", yScale(stat.median))
+                .attr("x2", x + boxWidth)
+                .attr("y2", yScale(stat.median))
+                .attr("stroke", "black")
+                .attr("stroke-width", 2);
+        });
 
         // Add x-axis with ticks for start and end coordinates
         if (this.coverage_data.length === 0) {
@@ -1352,18 +1353,10 @@ export class CoveragePlot {
 
         // Rotate the x-axis labels
         xAxisGroup.selectAll("text")
-            .attr("transform", "rotate(-45)")
-            .attr("x", -10)
-            .attr("y", 10)
+            .attr("transform", "rotate(-60)")
+            .attr("x", -5)
+            .attr("y", 0)
             .style("text-anchor", "end");
-
-        // Add x-axis label
-        coverageGroup.append("text")
-            .attr("x", this.dimensions.x + this.dimensions.width / 2)
-            .attr("y", this.dimensions.y + this.dimensions.height + 40)
-            .attr("text-anchor", "middle")
-            .style("font-size", "12px")
-            .text("Position");
     }
 }
 
@@ -1477,7 +1470,8 @@ export class BedPlot {
             .attr("y", this.dimensions.y)
             .attr("width", this.dimensions.width)
             .attr("height", this.dimensions.height)
-            .attr("fill", "rgba(200, 200, 200, 0.1)");
+            .attr("fill", "#f7f7f7")
+            .attr("fill-opacity", 0.75);
     
         // Add horizontal grid lines
         this.svg.append("g")
@@ -1629,7 +1623,8 @@ export class ExpressionPlot {
             .attr("y", this.box_plot_y)
             .attr("width", this.dimensions.width)
             .attr("height", this.box_plot_height)
-            .attr("fill", "rgba(200, 200, 200, 0.1)");
+            .attr("fill", "#f7f7f7")
+            .attr("fill-opacity", 0.75);
 
         // Add horizontal grid lines
         this.svg.append("g")
