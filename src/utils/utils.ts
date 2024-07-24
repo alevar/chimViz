@@ -10,7 +10,7 @@ export function adjustIntervals(intervals: Interval[], start: number, end: numbe
 
     const totalIntervals = intervals.length;
     const totalSpace = end - start;
-    const totalIntervalWidth = intervals.reduce((acc, interval) => acc + (interval[1] - interval[0]), 0);
+    const totalIntervalWidth = intervals.reduce((acc, interval) => acc + ((interval[1] - interval[0]) + separator), 0); // separator is added here to account for the space between intervals
     const emptyScaleFactor = (totalSpace - totalIntervalWidth) / totalSpace; // total fraction of space that is not occupied by intervals
 
     // compute intervals between interval median points
@@ -25,7 +25,7 @@ export function adjustIntervals(intervals: Interval[], start: number, end: numbe
     let scaledSpacerWidths = [];
     for (let i = 0; i < negativeIntervals.length; i++) {
         const interval = negativeIntervals[i];
-        const intervalWidth = interval[1] - interval[0];
+        const intervalWidth = (interval[1] - interval[0])-separator;
         const scaledWidth = intervalWidth * emptyScaleFactor;
         scaledSpacerWidths.push(scaledWidth);
     }
@@ -35,8 +35,8 @@ export function adjustIntervals(intervals: Interval[], start: number, end: numbe
     let prev_end = start;
     for (let i = 0; i < totalIntervals; i++) {
         const interval = intervals[i];
-        const intervalWidth = interval[1] - interval[0];
-        const spacer = scaledSpacerWidths[i];
+        const intervalWidth = (interval[1] - interval[0]);
+        const spacer = scaledSpacerWidths[i]+separator;
         const new_interval = [prev_end+spacer, prev_end + spacer + intervalWidth];
         prev_end = new_interval[1];
         new_intervals.push(new_interval);

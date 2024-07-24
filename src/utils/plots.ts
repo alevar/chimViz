@@ -1556,7 +1556,7 @@ export class ExpressionPlot {
     }
 
     public build_xs(): any {
-        const char_width = this.dimensions["font_size"]/0.5;
+        const char_width = this.dimensions["font_size"]/0.75;
 
         const raw_xs: any = [];
         let spread_xs: any = [];
@@ -1571,7 +1571,7 @@ export class ExpressionPlot {
             spread_xs.push([interval_start, interval_end]);
         });
 
-        const new_xs = utils.adjustIntervals(spread_xs, 1, this.dimensions["width"], 215);
+        const new_xs = utils.adjustIntervals(spread_xs, 1, this.dimensions["width"], 25);
         return { raw_xs: raw_xs, spread_xs: new_xs, colors: colors };
     }
 
